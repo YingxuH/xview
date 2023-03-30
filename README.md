@@ -2,9 +2,10 @@
 
 sample input: 
 
-This is an annotation for polygons in a satellite image. With that, can you caption the image with a brief description on the number of each type of polygons 
-and their spatial relations? Focus on their locations in the image. Please act like you are looking at the image without using any word like "polygon" or "annotation". 
-You can start with the caption right away.  
+This is an annotation for polygons in a satellite image. 
+With that, can you caption the image with a brief description on the number of each type of polygons and their spatial relations? 
+You could focus on their quantity, shapes, relative locations in the image, etc. Focus on details but do not throw numbers overwhelmingly.  
+Please act like you are looking at the image without using any words like "polygon" or "annotation". You can start with the caption right away.  
 
 [{'polygon_coordinates': [[[100.764096, 13.656486],
     [100.764096, 13.656279],
@@ -66,9 +67,6 @@ You can start with the caption right away.
     [100.763877, 13.655643],
     [100.763783, 13.655643]]],
   'polygon_type': 'Building'}]
- """
  
- output: This image shows various structures and vehicles in a given area. 
- At the center is the largest structure with rectangular shape, while nearby are four more smaller structures with triangular shape. 
- There are also two small cars parked next to each other. 
- The structures and vehicles are arranged in a loose grouping, with the largest rectangular structure serving as the focal point.
+ 
+ output: This image shows various structures and objects. There are three small cars, two rectangular buildings, and six other irregularly shaped buildings. The three cars are relatively close to each other, located on the left side of the image, while the buildings are spread out across the image.
