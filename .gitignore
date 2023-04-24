@@ -1,1 +1,11 @@
-*.geojson
+src/__pycache__/*
+annotations/*
+annotations_/*
+RSICD/*
+dota/*
+.ipynb_checkpoints/*
+train_labels/*
+log/*
+blocks_info_256.json
+blocks_info_500.json
+results/unique_blocks_info.json
