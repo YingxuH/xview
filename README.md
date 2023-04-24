@@ -1,72 +1,7 @@
 # xview
 
-sample input: 
+Assume you are Joshua, an experienced data analyst. I will give you a detailed description of objects in an image and will ask you to complete a few tasks:
 
-This is an annotation for polygons in a satellite image. 
-With that, can you caption the image with a brief description on the number of each type of polygons and their spatial relations? 
-You could focus on their quantity, shapes, relative locations in the image, etc. Focus on details but do not throw numbers overwhelmingly.  
-Please act like you are looking at the image without using any words like "polygon" or "annotation". You can start with the caption right away.  
+Description: "There is a 256 by 256 aerial image. One damaged building is located at x = 192 and y = 44, in the center towards the bottom of the image, with a size = 1485 pixels. One small car is located at x = 23 and y = 25, in the center towards the bottom of the image, with a size = 204 pixels. One small car is located at x = 25 and y = 168, in the center towards the bottom of the image, with a size = 165 pixels. One small car is located at x = 41 and y = 185, in the center towards the bottom of the image, with a size = 240 pixels. One small car is located at x = 74 and y = 220, in the center towards the bottom of the image, with a size = 90 pixels. One small car is located at x = 69 and y = 186, in the center towards the bottom of the image, with a size = 182 pixels. One small car is located at x = 123 and y = 253, in the center towards the bottom of the image, with a size = 120 pixels. One small car is located at x = 91 and y = 242, in the center towards the bottom of the image, with a size = 196 pixels. One small car is located at x = 112 and y = 241, on the center towards the bottom of the image, with a size = 110 pixels."
 
-[{'polygon_coordinates': [[[100.764096, 13.656486],
-    [100.764096, 13.656279],
-    [100.763869, 13.656279],
-    [100.763869, 13.656486],
-    [100.764096, 13.656486]]],
-  'polygon_type': 'Building'},
- {'polygon_coordinates': [[[100.764337, 13.656157],
-    [100.764337, 13.656107],
-    [100.764298, 13.656107],
-    [100.764298, 13.656157],
-    [100.764337, 13.656157]]],
-  'polygon_type': 'SmallCar'},
- {'polygon_coordinates': [[[100.764105, 13.656166],
-    [100.764105, 13.656129],
-    [100.764161, 13.656129],
-    [100.764161, 13.656166],
-    [100.764105, 13.656166]]],
-  'polygon_type': 'SmallCar'},
- {'polygon_coordinates': [[[100.763769, 13.656257],
-    [100.763769, 13.656131],
-    [100.763917, 13.656131],
-    [100.763917, 13.656257],
-    [100.763769, 13.656257]]],
-  'polygon_type': 'Building'},
- {'polygon_coordinates': [[[100.764317, 13.655808],
-    [100.764317, 13.655717],
-    [100.764207, 13.655717],
-    [100.764207, 13.655808],
-    [100.764317, 13.655808]]],
-  'polygon_type': 'Building'},
- {'polygon_coordinates': [[[100.764065, 13.655895],
-    [100.764065, 13.655758],
-    [100.764249, 13.655758],
-    [100.764249, 13.655895],
-    [100.764065, 13.655895]]],
-  'polygon_type': 'Building'},
- {'polygon_coordinates': [[[100.764004, 13.655852],
-    [100.764004, 13.655771],
-    [100.764076, 13.655771],
-    [100.764076, 13.655852],
-    [100.764004, 13.655852]]],
-  'polygon_type': 'Building'},
- {'polygon_coordinates': [[[100.764053, 13.65566],
-    [100.764053, 13.655551],
-    [100.764174, 13.655551],
-    [100.764174, 13.65566],
-    [100.764053, 13.65566]]],
-  'polygon_type': 'Building'},
- {'polygon_coordinates': [[[100.764046, 13.655631],
-    [100.764046, 13.655517],
-    [100.763925, 13.655517],
-    [100.763925, 13.655631],
-    [100.764046, 13.655631]]],
-  'polygon_type': 'Building'},
- {'polygon_coordinates': [[[100.763783, 13.655643],
-    [100.763783, 13.655561],
-    [100.763877, 13.655561],
-    [100.763877, 13.655643],
-    [100.763783, 13.655643]]],
-  'polygon_type': 'Building'}]
- 
- 
- output: This image shows various structures and objects. There are three small cars, two rectangular buildings, and six other irregularly shaped buildings. The three cars are relatively close to each other, located on the left side of the image, while the buildings are spread out across the image.
+Task 1: Determine spatial relations between objects. Task 2: Extract high-level spatial patterns between the objects, such as direction, clustering, dispersion, encirclement, interposition, etc. Task 3: Generate one or more independent image captions with high-level significant spatial patterns. Each starts with "CAP", with no longer than 32 tokens.
