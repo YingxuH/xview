@@ -1,4 +1,6 @@
 FREE_GPT_URL = "https://gptai.cloud"
+CHAT_COMPLETION_MODELS = ["gpt-3.5-turbo"]
+TEXT_COMPLETION_MODELS = ["text-davinci-003"]
 
 INPUT_PROMPT = "Act as an image captioner to provide an accurate caption in 2-5 sentences for a 256 x 256 satellite image based on a set of object annotations. I want you to describe only the sizes and positional relationships of these objects in plain English. I want you to describe features using English instead of throwing the exact numbers overwhelmingly. Here is the annotation"
 
