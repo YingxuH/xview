@@ -12,6 +12,24 @@ from gensim.utils import tokenize
 
 from src import constants
 
+def _unified_gpt_create(model, message, *args, **kwargs):
+    if model in constants.TEXT_COMPLETION_MODELS:
+        return openai.Completion.create(
+            model=model,
+            prompt=message,
+            *args,
+            **kwargs
+        )
+    elif model in constants.CHAT_COMPLETION_MODELS:
+        return openai.ChatCompletion.create(
+            model=model,
+            messages=message,
+            *args,
+            **kwargs
+        )
+    else:
+        raise Exception(f"unknown model name: {model}")
+
 
 class FreeChatGptCaller:
     def __init__(self, save=True):
@@ -164,10 +182,14 @@ class FreeChatGptCaller:
     
     
 class ChatGptCaller:
-    def __init__(self, model_name, system_message, input_prompt, limit=2500, save=True):
+    def __init__(self, model_name, system_message, input_prompt, mode="chat", limit=2500, save=True):
         self.input_prompt = input_prompt
         self.model_name = model_name
         self.system_message = system_message
+        if mode == "text":
+            self.wrapper = openai.Completion 
+        elif mode == "chat":
+            self.wrapper = openai.ChatCompletion
         
         self.total_use = 0
         self.limit = limit * 1000
@@ -205,9 +227,10 @@ class ChatGptCaller:
         messages = self.session + [{"role": "user", "content": input_message}]
 
         try:
-            result = openai.ChatCompletion.create(
+            result = _unified_gpt_create(
                 model=self.model_name,
-                messages=messages)
+                message=messages
+            )
         except Exception as e:
             raise e
 #             print(f"retry {retry}: {e}")
