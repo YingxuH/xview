@@ -224,7 +224,12 @@ class ChatGptCaller:
         if retry == 0:
             return self.dummy_response
         
-        messages = self.session + [{"role": "user", "content": input_message}]
+        if self.model_name in constants.CHAT_COMPLETION_MODELS:
+            messages = input_message
+        elif self.model_name in constants.TEXT_COMPLETION_MODELS:
+            messages = self.session + [{"role": "user", "content": input_message}]
+        else:
+            raise Exception(f"unknown model name: {self.model}")
 
         try:
             result = _unified_gpt_create(
