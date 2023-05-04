@@ -182,8 +182,7 @@ class FreeChatGptCaller:
     
     
 class ChatGptCaller:
-    def __init__(self, model_name, system_message, input_prompt, mode="chat", limit=2500, save=True):
-        self.input_prompt = input_prompt
+    def __init__(self, model_name, system_message, mode="chat", limit=2500, save=True):
         self.model_name = model_name
         self.system_message = system_message
         if mode == "text":
@@ -223,25 +222,31 @@ class ChatGptCaller:
     def call(self, input_message, retry=3):
         if retry == 0:
             return self.dummy_response
-        
-        if self.model_name in constants.CHAT_COMPLETION_MODELS:
-            messages = input_message
-        elif self.model_name in constants.TEXT_COMPLETION_MODELS:
-            messages = self.session + [{"role": "user", "content": input_message}]
-        else:
+        if self.model_name not in constants.TEXT_COMPLETION_MODELS + constants.CHAT_COMPLETION_MODELS:
             raise Exception(f"unknown model name: {self.model}")
-
+        
+        if self.model_name in constants.TEXT_COMPLETION_MODELS:
+            messages = input_message
+        elif self.model_name in constants.CHAT_COMPLETION_MODELS:
+            messages = self.session + [{"role": "user", "content": input_message}]
+            
         try:
             result = _unified_gpt_create(
                 model=self.model_name,
-                message=messages
+                message=messages,
+                max_tokens=256,
+                temperature=0.7
             )
         except Exception as e:
             raise e
 #             print(f"retry {retry}: {e}")
 #             return self.call(messages, retry=retry-1)
-            
-        response = result['choices'][0]['message']['content']
+#         print(result)
+        
+        if self.model_name in constants.TEXT_COMPLETION_MODELS:
+            response = result['choices'][0]["text"]
+        elif self.model_name in constants.CHAT_COMPLETION_MODELS:
+            response = result['choices'][0]['message']['content']
         use = result["usage"]["total_tokens"]
         
         self.session.append({"role": "user", "content": input_message})
@@ -262,17 +267,17 @@ class ChatGptCaller:
         
     def query_image(self, polygons, retry=3):
         self.start_session()
-        input_message = f"{self.input_prompt}: {polygons}".replace("\n", "").replace("\'", "")
-
+#         input_message = f"{self.input_prompt}: {polygons}".replace("\n", "").replace("\'", "")
+        input_message = polygons
         response = self.call(input_message)
         
-        if not self.do_not_throw_number_validation(polygons, response):
-            print(f"follow up: {response}")
-            response = self.call(self.do_not_throw_number_prompt)
+#         if not self.do_not_throw_number_validation(polygons, response):
+#             print(f"follow up: {response}")
+#             response = self.call(self.do_not_throw_number_prompt)
         
-        if not self.do_not_make_up_validation(polygons, response):
-            print(f"follow up: {response}")
-            response = self.call(self.do_not_make_up_prompt)
+#         if not self.do_not_make_up_validation(polygons, response):
+#             print(f"follow up: {response}")
+#             response = self.call(self.do_not_make_up_prompt)
             
         self.clear_session()
         return response
