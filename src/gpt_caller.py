@@ -8,6 +8,7 @@ import concurrent.futures as futures
 import openai
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
 from gensim.utils import tokenize
 
 from src import constants
@@ -61,7 +62,10 @@ class FreeChatGptCaller:
             return
 
         try:
-            self.driver = webdriver.Chrome()
+            options = Options()
+            options.add_argument('--headless')
+            options.add_argument('--disable-gpu')
+            self.driver = webdriver.Chrome(chrome_options=options)
             self.driver.get(self.target_url)
         except Exception:
             self.init_webdriver(retry=retry-1)
