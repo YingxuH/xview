@@ -4,6 +4,7 @@ annotations_/*
 RSICD/*
 dota/*
 .ipynb_checkpoints/*
+.idea/*
 train_labels/*
 log/*
 blocks_info_256.json

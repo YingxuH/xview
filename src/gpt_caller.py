@@ -31,6 +31,7 @@ class FreeChatGptCaller:
         self.follow_task_format_prompt = constants.FOLLOW_TASK_FORMAT_PROMPT
         self.follow_caption_format_prompt = constants.FOLLOW_CAPTION_FORMAT_PROMPT
         self.follow_caption_length_prompt = constants.FOLLOW_CAPTION_LENGTH_PROMPT
+        self.follow_caption_number_prompt = constants.FOLLOW_CAPTION_NUMBER_PROMPT
 
         self.history = []
         self.session = []
@@ -133,6 +134,10 @@ class FreeChatGptCaller:
         captions_lens = [len(list(tokenize(cap.strip()))) > 25 for cap in captions]
         if any(captions_lens):
             return self.follow_caption_length_prompt
+
+        joint_caption = "".join(captions)
+        if len(re.findall("\d", joint_caption)) >= 2 * len(captions):
+            return self.follow_caption_number_prompt
 
         return ""
 
