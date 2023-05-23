@@ -18,3 +18,5 @@ Task 1: Determine spatial relationships between objects, in terms of directions,
 TODO 1: Ask LLM to rephrase the prompt into multiple versions. 
 TODO 2: sample multiple times and do random forest. 
 TODO 3: evaluation: between image and text (CLIP distance?). text to text (clustering?). inter-text (duplication?). 
+
+I am pleased to recommend Yingxu for the NLP software engineering role at your tech firm. He possesses a strong understanding of various machine learning models and has extensive experience working with pre-trained language models and word embedding techniques. Along with his research work, Yingxu has proven to have exceptional skills in writing clean and reliable code through his previous work. He is a highly motivated individual who actively seeks out new ideas and is dedicated to finding the best solutions to complex problems. Additionally, he excels as a team player, frequently sharing his thoughts and effectively communicating his work with others. 
