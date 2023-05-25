@@ -15,7 +15,7 @@ FOLLOW_CAPTION_NUMBER_PROMPT = "Please Do not use exact numbers in the caption. 
 
 PROMPT_PREFIX = [
     "Assume you are Joshua, an experienced data analyst. I will give you a detailed description of objects in an image and I want you to generate accurate and desciptive image captions from it. You shall read the description first and follow a few tasks to generate captions",
-
+    "Could you please do me a favour? Assume you are Joshua, an experienced data analyst. I will give you a detailed description of objects in an image and I want you to generate accurate and desciptive image captions from it. You shall read the description first and follow a few tasks to generate captions step by step."
 ]
 
 PROMPT_SUFFIX = [
@@ -54,6 +54,9 @@ PROMPT_SUFFIX = [
     ["Task 1: Identify the objects in the image and their locations and sizes. Use the format: ‘There is a/an [object] at [x,y] with a size of [pixels].’ Separate each object with a period.",
      "Task 2: Compare the locations and sizes of the objects and describe how they relate to each other in terms of distance and direction. Use the format: ‘[Object A] is [relation] to [object B].’ Separate each relation with a period.",
      "Task 3: Identify any patterns or formations in the arrangement of the objects, such as lines, arcs, clusters, or dispersion.",
-     "Task 4: Generate 1 to 5 independent image captions that accurately describe the significant spatial patterns and relationships between the objects. Each caption should start with ‘CAP’ and be no longer than 25 words."]
+     "Task 4: Generate 1 to 5 independent image captions that accurately describe the significant spatial patterns and relationships between the objects. Each caption should start with ‘CAP’ and be no longer than 25 words."],
+    ["Task 1: Determine spatial relations between objects.",
+     "Task 2: Extract high-level spatial patterns between the objects, such as adjacency (objects very close to other objects), clustering (objects concentrated in the same area), formation (objects form a line/arc/circle shape, etc.), dispersion (objects scattered across the image), encirclement (objects surrounded by others), interposition (objects between others), etc.",
+     "Task 3: Use these patterns or relationships to generate 1 to 5 descriptive captions that highlight the most significant or interesting aspects of the image. Each caption starts with 'CAP', each with no longer than 25 words. Please use clear and concise language and avoid repeating the same information. In addition, do not mention the exact coordinates or pixel sizes of each object, but rather use relative terms such as 'top left', 'center', or 'large'"]
 
 ]
