@@ -18,3 +18,4 @@ Task 1: Determine spatial relationships between objects, in terms of directions,
 TODO 1: Ask LLM to rephrase the prompt into multiple versions. 
 TODO 2: sample multiple times and do random forest. 
 TODO 3: evaluation: between image and text (CLIP distance?). text to text (clustering?). inter-text (duplication?). 
+
