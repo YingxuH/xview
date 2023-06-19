@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from sklearn.linear_model import LinearRegression
 
+cmap = plt.get_cmap('viridis')
+
 
 def random_test(blocks_info, image_path, key=None):
     if key is None:
@@ -42,6 +44,45 @@ def random_test(blocks_info, image_path, key=None):
 
     plt.xlim(lb_x, ru_x)
     plt.ylim(ru_y, lb_y)
+    plt.show()
+    plt.close()
+
+    return key
+
+
+def random_test_sub_blocks(polygons, key, labels, image_path):
+    unique_labels, unique_indices = np.unique(labels, return_index=True)
+    colors = cmap(np.linspace(0, 1, unique_labels.shape[0]))
+    colors_map = dict(zip(unique_labels, colors))
+
+    image_file_path = os.path.join(image_path, key + ".png")
+
+    image = plt.imread(image_file_path)
+
+    plt.figure(figsize=(10, 10))
+    plt.imshow(image)
+
+    rectangles = []
+    for i, box in enumerate(polygons["polygons"]):
+        color_encoding = colors_map[labels[i]]
+
+        coord = box['rectangle_coordinates']
+
+        left_bottom = coord[:2]
+        height, width = coord[2] - coord[0], coord[3] - coord[1]
+        rect = patches.Rectangle(
+            left_bottom, height, width,
+            linewidth=1,
+            edgecolor=color_encoding,
+            facecolor='none'
+        )
+
+        # Add the patch to the Axes
+        plt.gca().add_patch(rect)
+        rectangles.append(rect)
+
+    unique_rects = [rectangles[i] for i in unique_indices]
+    plt.legend(unique_rects, unique_labels)
     plt.show()
     plt.close()
 
