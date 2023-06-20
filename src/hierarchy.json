@@ -1,0 +1,82 @@
+{
+  "Structure": {
+      "Building": {
+        "AircraftHangar": {},
+        "DamagedBuilding": {},
+        "StorageTank": {},
+        "Tower:": {
+          "Pylon": {}
+        },
+        "Shelter:": {
+          "HutOrTent": {},
+          "Shed": {}
+        }
+      },
+      "Facility": {
+        "TowerCrane": {},
+        "ShippingContainer": {},
+        "ContainerCrane": {}
+      },
+      "Infrastructure": {
+        "ConstructionSite": {},
+        "VehicleLot": {},
+        "Helipad": {},
+        "ShippingContainerLot": {}
+      }
+    },
+  "Aircraft": {
+      "FixedWingAircraft:": {
+        "SmallAircraft": {},
+        "CargoPlane": {}
+      },
+      "Helicopter": {}
+    },
+  "Vehicle": {
+      "PassengerVehicle:": {
+        "SmallCar": {},
+        "Bus": {}
+      },
+      "EngineeringVehicle:": {
+        "MobileCrane": {},
+        "ReachStacker": {},
+        "StraddleCarrier": {},
+        "Truck:": {
+          "CargoTruck": {},
+          "TruckWithBox": {},
+          "TruckTractor": {},
+          "Trailer": {},
+          "TruckWithFlatbed": {},
+          "TruckWithLiquid": {},
+          "CraneTruck": {},
+          "PickupTruck": {},
+          "UtilityTruck": {},
+          "DumpTruck": {},
+          "HaulTruck": {}
+        },
+        "ScraperOrTractor:": {
+          "FrontLoaderOrBulldozer": {},
+          "Excavator": {},
+          "CementMixer": {},
+          "GroundGrader": {}
+        }
+      },
+      "RailwayVehicle:": {
+        "PassengerCar": {},
+        "CargoCar": {},
+        "FlatCar": {},
+        "TankCar": {},
+        "Locomotive": {}
+      }
+    },
+  "MaritimeVessel": {
+      "Motorboat": {},
+      "Sailboat": {},
+      "Tugboat": {},
+      "Barge": {},
+      "FishingVessel": {},
+      "Ferry": {},
+      "Yacht": {},
+      "ContainerShip": {},
+      "OilTanker": {}
+    }
+  }

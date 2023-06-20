@@ -196,7 +196,7 @@ def box_distance(array_a, array_b):
 
     x_dist_min, y_dist_min = x_dist.min(), y_dist.min()
 
-    return np.sqrt(np.square(x_dist_min) + np.square(y_dist_min))
+    return np.sqrt(np.square(x_dist_min) + np.square(y_dist_min)) + 0.01
 
 
 def box_distance_with_type(array_a, array_b, multiplier = 100):
@@ -215,4 +215,5 @@ def get_outlier_threshold(array):
     median = np.median(array)
     per_75 = np.percentile(array, 75)
     per_25 = np.percentile(array, 25)
+    print(median, per_25, per_75)
     return median + (per_75 - per_25) * 1.5
