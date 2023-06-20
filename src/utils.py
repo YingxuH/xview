@@ -178,3 +178,41 @@ def get_polygons(block, image_size=256):
     sentence = polygons_to_nl(polygons)
 
     return {"polygons": polygons, "sentence": sentence}
+
+
+def box_distance(array_a, array_b):
+    if (not isinstance(array_a, np.ndarray)) and (not isinstance(array_b, np.ndarray)):
+        array_a = np.array(array_a)
+        array_b = np.array(array_b)
+
+    x_a, y_a = array_a[[0, 2]], array_a[[1, 3]]
+    x_b, y_b = array_b[[0, 2]], array_b[[1, 3]]
+
+    x_sign, y_sign = np.sign(x_a - x_b), np.sign(y_a - y_b)
+    x_dist, y_dist = x_a - np.flip(x_b), y_a - np.flip(y_b)
+
+    x_dist = np.clip(x_sign * x_dist, a_min=0, a_max=None)
+    y_dist = np.clip(y_sign * y_dist, a_min=0, a_max=None)
+
+    x_dist_min, y_dist_min = x_dist.min(), y_dist.min()
+
+    return np.sqrt(np.square(x_dist_min) + np.square(y_dist_min))
+
+
+def box_distance_with_type(array_a, array_b, multiplier = 100):
+    if (not isinstance(array_a, np.ndarray)) and (not isinstance(array_b, np.ndarray)):
+        array_a = np.array(array_a)
+        array_b = np.array(array_b)
+
+    dist = box_distance(array_a[:-1], array_b[:-1])
+    type_a, type_b = array_a[-1], array_b[-1]
+    type_dist = 0 if type_a == type_b else multiplier
+
+    return np.sqrt(np.square(dist) + np.square(type_dist))
+
+
+def get_outlier_threshold(array):
+    median = np.median(array)
+    per_75 = np.percentile(array, 75)
+    per_25 = np.percentile(array, 25)
+    return median + (per_75 - per_25) * 1.5
