@@ -199,7 +199,7 @@ def box_distance(array_a, array_b):
     return np.sqrt(np.square(x_dist_min) + np.square(y_dist_min)) + 0.01
 
 
-def box_distance_with_type(array_a, array_b, multiplier = 100):
+def box_distance_with_type(array_a, array_b, multiplier=1000):
     if (not isinstance(array_a, np.ndarray)) and (not isinstance(array_b, np.ndarray)):
         array_a = np.array(array_a)
         array_b = np.array(array_b)
@@ -217,3 +217,38 @@ def get_outlier_threshold(array):
     per_25 = np.percentile(array, 25)
     print(median, per_25, per_75)
     return median + (per_75 - per_25) * 1.5
+
+
+def get_distance_matrix(encodings: np.ndarray, func=box_distance_with_type):
+    n = encodings.shape[0]
+    dist_matrix = np.zeros((n, n))
+
+    for i in range(n):
+        for j in range(n):
+            if j <= i:
+                dist_matrix[i][j] = 0
+            else:
+                dist_matrix[i][j] = func(encodings[i], encodings[j])
+
+    return dist_matrix
+
+
+def elbow_cut_off(array, bin_size=2.0, window_size=6, increase_thres=4):
+    if not isinstance(array, np.ndarray):
+        array = np.array(array)
+
+    array_min = array.min()
+    array_max = array.max()
+    bins = np.arange(np.floor(array_min / bin_size), np.ceil(array_max / bin_size) + 1) * bin_size
+    counts, bins = np.histogram(array, bins)
+    starts = bins[1:]
+
+    perc_counts = (counts - counts.min()) / (counts.max() - counts.min())
+    perc_starts = (starts - starts.min()) / (starts.max() - starts.min())
+    weights = perc_counts + perc_starts
+
+    indices = np.tile(np.expand_dims(np.arange(len(counts) - window_size + 1), axis=1), (1, window_size)) + np.arange(window_size)
+    increase_trends = (weights[indices][:, :-1] < weights[indices][:, 1:]).sum(axis=1)
+    thres_index = np.where(increase_trends >= increase_thres)[0][0]
+
+    return starts[thres_index]

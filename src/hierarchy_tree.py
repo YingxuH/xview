@@ -1,9 +1,12 @@
+import re
 import json
 from typing import List
 
 
 class TreeNode:
     def __init__(self, category, children=None, significant=False):
+        category_lst = re.findall('[A-Z][^A-Z]*', category)
+        category = " ".join(category_lst).lower()
         self.category = category
         self.children = children if children is not None else []
         self.significant = significant
@@ -28,7 +31,7 @@ class HierarchyTree:
 
     def _load_tree(self, data, parent):
         for key in data:
-            is_significant = key[-1] != ":"
+            is_significant = (key[-1] != ":") and len(data[key]) > 0
             category = key.split(":")[0]
 
             child = TreeNode(category, significant=is_significant)
