@@ -3,6 +3,7 @@ import re
 import random
 
 import numpy as np
+import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from sklearn.linear_model import LinearRegression
@@ -252,3 +253,99 @@ def elbow_cut_off(array, bin_size=2.0, window_size=6, increase_thres=4):
     thres_index = np.where(increase_trends >= increase_thres)[0][0]
 
     return starts[thres_index]
+
+
+def get_clusters(n, edges):
+    ids = np.arange(n)
+    next_id = n
+
+    for edge in edges:
+        start_id, end_id = ids[edge]
+        ids[(ids == start_id) | (ids == end_id)] = next_id
+        next_id += 1
+
+    return np.unique(ids, return_inverse=True)[1]
+
+
+def root_mean_squared_error(prediction, reference):
+    preds_array = np.array(prediction)
+    refers_array = np.array(reference)
+
+    return np.sqrt(np.square(preds_array - refers_array).sum()) / preds_array.shape[0]
+
+
+def detect_line_shape(X, ae_thres=1, angles_thres=0.25):
+    if X.shape[0] < 3:
+        return False
+
+    center_x = X[:, [0, 2]].mean(axis=1)
+    center_y = X[:, [1, 3]].mean(axis=1)
+
+    tl_x, tl_y = X[:, 0], X[:, 1]
+    br_x, br_y = X[:, 2], X[:, 3]
+
+    diameters = (np.abs(br_x - tl_x) + np.abs(br_y - tl_y)) / 2
+
+    center_lr = LinearRegression()
+    tl_lr = LinearRegression()
+    br_lr = LinearRegression()
+
+    center_lr.fit(np.expand_dims(center_x, 1), center_y)
+    tl_lr.fit(np.expand_dims(tl_x, 1), tl_y)
+    br_lr.fit(np.expand_dims(br_x, 1), br_y)
+
+    center_y_hat = center_lr.predict(np.expand_dims(center_x, 1))
+    tl_y_hat = tl_lr.predict(np.expand_dims(tl_x, 1))
+    br_y_hat = br_lr.predict(np.expand_dims(br_x, 1))
+
+    center_lr_ae = np.abs(center_y_hat - center_y) / diameters
+    tl_lr_ae = np.abs(tl_y_hat - tl_y) / diameters
+    br_lr_ae = np.abs(br_y_hat - br_y) / diameters
+
+    center_lr_tan = center_lr.coef_[0]
+    tl_lr_tan = tl_lr.coef_[0]
+    br_lr_tan = br_lr.coef_[0]
+
+    all_aes = np.stack([center_lr_ae, tl_lr_ae, br_lr_ae])
+    all_degrees = np.arctan([center_lr_tan, tl_lr_tan, br_lr_tan]) / np.pi
+
+    valid_aes = all(all_aes.max(axis=1) < ae_thres)
+    valid_angles = np.ptp(all_degrees) < angles_thres
+
+    return valid_aes and valid_angles
+
+
+def unit_vector(vector):
+    """ Returns the unit vector of the vector.  """
+    return vector / np.linalg.norm(vector, axis=-1, keepdims=True)
+
+
+def detect_orientation(X_a, X_b):
+    n_a = X_a.shape[0]
+    n_b = X_b.shape[0]
+
+    vectors = np.tile(np.expand_dims(X_a, axis=1), (1, n_b, 1)) - np.tile(np.expand_dims(X_b, axis=0), (n_a, 1, 1))
+
+    flatten_vectors = np.concatenate([vectors[:, :, :2], vectors[:, :, 2:]], axis=1)
+    n_vectors = flatten_vectors.shape[1]
+
+    vectors_a = np.tile(np.expand_dims(flatten_vectors, axis=2), (1, 1, n_vectors, 1))
+    vectors_b = np.tile(np.expand_dims(flatten_vectors, axis=1), (1, n_vectors, 1, 1))
+    unit_vectors_a, unit_vectors_b = unit_vector(vectors_a), unit_vector(vectors_b)
+
+    products = np.sum(unit_vectors_a * unit_vectors_b, axis=-1)
+    angles = np.arccos(np.clip(products, -1.0, 1.0)) / np.pi
+    vectors_opposite = np.any(angles > (135 / 180), axis=-1)
+
+    objects_inside = np.any(vectors_opposite, axis=-1)
+    is_inside = np.all(objects_inside)
+    is_outside = np.all(~objects_inside)
+    is_mixture = (not is_inside) and (not is_outside)
+
+    unit_flatten_vectors = unit_vector(flatten_vectors)
+    orientation_objects = unit_vector(np.sum(unit_flatten_vectors, axis=-2))
+    orientation = unit_vector(np.sum(orientation_objects, axis=-2))
+    horizontal_string = ("right" if orientation[0] > 0 else "left") if np.abs(orientation[0]) > 0.6 else ""
+    vertical_string = ("bottom" if orientation[1] > 0 else "top") if np.abs(orientation[1]) > 0.6 else ""
+    orientation_string = f"{vertical_string} {horizontal_string}".strip()
+    return is_inside, is_outside, is_mixture, orientation_string
