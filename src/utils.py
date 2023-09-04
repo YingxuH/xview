@@ -182,6 +182,12 @@ def get_polygons(block, image_size=256):
 
 
 def box_distance(array_a, array_b):
+    """
+    calcualte the distance between any two boxes.
+    :param array_a:
+    :param array_b:
+    :return:
+    """
     if (not isinstance(array_a, np.ndarray)) and (not isinstance(array_b, np.ndarray)):
         array_a = np.array(array_a)
         array_b = np.array(array_b)
@@ -201,6 +207,13 @@ def box_distance(array_a, array_b):
 
 
 def box_distance_with_type(array_a, array_b, multiplier=1000):
+    """
+    calculate the distance between boxes considering the difference between object types.
+    :param array_a:
+    :param array_b:
+    :param multiplier:
+    :return:
+    """
     if (not isinstance(array_a, np.ndarray)) and (not isinstance(array_b, np.ndarray)):
         array_a = np.array(array_a)
         array_b = np.array(array_b)
@@ -275,6 +288,13 @@ def root_mean_squared_error(prediction, reference):
 
 
 def detect_line_shape(X, ae_thres=1, angles_thres=0.25):
+    """
+    detect whether a cluster of objects form a line shape.
+    :param X:
+    :param ae_thres:
+    :param angles_thres:
+    :return:
+    """
     if X.shape[0] < 3:
         return False
 
@@ -316,15 +336,21 @@ def detect_line_shape(X, ae_thres=1, angles_thres=0.25):
 
 
 def unit_vector(vector):
-    """ Returns the unit vector of the vector.  """
+    """ Returns the unit vector of the vector. """
     return vector / np.linalg.norm(vector, axis=-1, keepdims=True)
 
 
-def detect_orientation(X_a, X_b):
-    n_a = X_a.shape[0]
-    n_b = X_b.shape[0]
+def detect_orientation(x_a: np.ndarray, x_b: np.ndarray):
+    """
+    detect the geographical relationships between objects.
+    :param x_a:
+    :param x_b:
+    :return:
+    """
+    n_a = x_a.shape[0]
+    n_b = x_b.shape[0]
 
-    vectors = np.tile(np.expand_dims(X_a, axis=1), (1, n_b, 1)) - np.tile(np.expand_dims(X_b, axis=0), (n_a, 1, 1))
+    vectors = np.tile(np.expand_dims(x_a, axis=1), (1, n_b, 1)) - np.tile(np.expand_dims(x_b, axis=0), (n_a, 1, 1))
 
     flatten_vectors = np.concatenate([vectors[:, :, :2], vectors[:, :, 2:]], axis=1)
     n_vectors = flatten_vectors.shape[1]
