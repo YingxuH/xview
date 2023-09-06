@@ -1,6 +1,7 @@
 import re
 import json
 from typing import List
+from collections.abc import Sequence
 
 
 class TreeNode:
@@ -64,7 +65,7 @@ class HierarchyTree:
         helper(self.root)
         return ans[0]
 
-    def find_common_parent(self, categories: List[str]):
+    def find_common_parent(self, categories: Sequence[str]):
         ans = [""]
 
         def helper(root: TreeNode):

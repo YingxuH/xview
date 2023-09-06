@@ -1,6 +1,7 @@
 import os
 import re
 import random
+from typing import Dict
 
 import numpy as np
 import statsmodels.api as sm
@@ -122,7 +123,7 @@ def polygons_to_nl(polygons):
     return sentence
 
 
-def get_polygons(block, image_size=256):
+def get_polygons(block, image_size=256) -> Dict:
     lb_x, lb_y, ru_x, ru_y = [int(value) for value in block["chip_coords"].split(",")]
     lb_coords = np.array([lb_x, lb_y])
 
@@ -218,8 +219,10 @@ def box_distance_with_type(array_a, array_b, multiplier=1000):
         array_a = np.array(array_a)
         array_b = np.array(array_b)
 
-    dist = box_distance(array_a[:-1], array_b[:-1])
+    coordinates_a, coordinates_b = array_a[:-1], array_b[:-1]
     type_a, type_b = array_a[-1], array_b[-1]
+
+    dist = box_distance(coordinates_a, coordinates_b)
     type_dist = 0 if type_a == type_b else multiplier
 
     return np.sqrt(np.square(dist) + np.square(type_dist))
@@ -268,7 +271,7 @@ def elbow_cut_off(array, bin_size=2.0, window_size=6, increase_thres=4):
     return starts[thres_index]
 
 
-def get_clusters(n, edges):
+def get_clusters_ids(n, edges) -> np.ndarray:
     ids = np.arange(n)
     next_id = n
 
@@ -375,3 +378,40 @@ def detect_orientation(x_a: np.ndarray, x_b: np.ndarray):
     vertical_string = ("bottom" if orientation[1] > 0 else "top") if np.abs(orientation[1]) > 0.6 else ""
     orientation_string = f"{vertical_string} {horizontal_string}".strip()
     return is_inside, is_outside, is_mixture, orientation_string
+
+
+def describe_relations(clusters, connectivity, encodings):
+    if connectivity.shape[0] == 0:
+        return []
+
+    cluster_ids, counts = np.unique(clusters, return_counts=True)
+
+    queue = [cluster_ids[np.argmax(counts)]]
+    visited_edges = set()
+    relations = []
+
+    while queue:
+        source = queue.pop(0)
+        neighbours = connectivity[connectivity[:, 0] == source, 1].tolist()
+        valid_neighbours = []
+
+        for neigh in neighbours:
+            current_edge = tuple(sorted([source, neigh]))
+            if current_edge not in visited_edges:
+                queue.append(neigh)
+                valid_neighbours.append(neigh)
+                visited_edges.add(current_edge)
+        relations.append([source, valid_neighbours])
+
+    for source, targets in relations:
+        for target in targets:
+            is_inside, is_outside, is_mixture, orientation = detect_orientation(
+                encodings[clusters == source, :-1],
+                encodings[clusters == target, :-1]
+            )
+            if is_inside or is_mixture:
+                print(f"group {source} is between group {target}")
+            elif is_outside:
+                print(f"group {source} is on the {orientation} side of group {target}")
+
+    return relations
