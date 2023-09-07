@@ -62,8 +62,8 @@ class ClustersIdentifier:
 
         self.distance_threshold_percentile = {key: np.percentile(item, 75) for key, item in distance_freq.items()}
 
-    def infer(self, block_id):
-        polygons = get_polygons(self.unique_blocks_info[block_id], image_size=256)
+    def infer(self, polygons: Dict):
+        # polygons = get_polygons(self.unique_blocks_info[block_id], image_size=256)
         polygons["polygons"] = [poly for poly in polygons["polygons"] if poly["object"] != "construction site"]
         original_types = [poly['object'] for poly in polygons["polygons"]]
 
@@ -86,7 +86,7 @@ class ClustersIdentifier:
         for i, cid in enumerate(np.unique(clusters)):
             c_types = [original_types[i] for i, t in enumerate(original_types) if clusters[i] == cid]
             objects_common_parents = self.tree.find_common_parent(np.unique(c_types))
-            if detect_line_shape(x[clusters == cid], ae_thres=0.7):
+            if detect_line_shape(x[clusters == cid], ae_threshold=0.7):
                 print(f"group {cid} contains a line of {objects_common_parents}")
             else:
                 print(f"group {cid} contains some {objects_common_parents}")

@@ -290,22 +290,22 @@ def root_mean_squared_error(prediction, reference):
     return np.sqrt(np.square(preds_array - refers_array).sum()) / preds_array.shape[0]
 
 
-def detect_line_shape(X, ae_thres=1, angles_thres=0.25):
+def detect_line_shape(encoding, ae_threshold=1, angles_threshold=0.25):
     """
     detect whether a cluster of objects form a line shape.
-    :param X:
-    :param ae_thres:
-    :param angles_thres:
+    :param encoding:
+    :param ae_threshold:
+    :param angles_threshold:
     :return:
     """
-    if X.shape[0] < 3:
+    if encoding.shape[0] < 3:
         return False
 
-    center_x = X[:, [0, 2]].mean(axis=1)
-    center_y = X[:, [1, 3]].mean(axis=1)
+    center_x = encoding[:, [0, 2]].mean(axis=1)
+    center_y = encoding[:, [1, 3]].mean(axis=1)
 
-    tl_x, tl_y = X[:, 0], X[:, 1]
-    br_x, br_y = X[:, 2], X[:, 3]
+    tl_x, tl_y = encoding[:, 0], encoding[:, 1]
+    br_x, br_y = encoding[:, 2], encoding[:, 3]
 
     diameters = (np.abs(br_x - tl_x) + np.abs(br_y - tl_y)) / 2
 
@@ -332,10 +332,16 @@ def detect_line_shape(X, ae_thres=1, angles_thres=0.25):
     all_aes = np.stack([center_lr_ae, tl_lr_ae, br_lr_ae])
     all_degrees = np.arctan([center_lr_tan, tl_lr_tan, br_lr_tan]) / np.pi
 
-    valid_aes = all(all_aes.max(axis=1) < ae_thres)
-    valid_angles = np.ptp(all_degrees) < angles_thres
+    valid_aes = all(all_aes.max(axis=1) < ae_threshold)
+    valid_angles = np.ptp(all_degrees) < angles_threshold
 
     return valid_aes and valid_angles
+
+
+def detect_shape(encoding):
+    if detect_line_shape(encoding):
+        return "line"
+    return "general"
 
 
 def unit_vector(vector):
@@ -343,17 +349,18 @@ def unit_vector(vector):
     return vector / np.linalg.norm(vector, axis=-1, keepdims=True)
 
 
-def detect_orientation(x_a: np.ndarray, x_b: np.ndarray):
+def detect_orientation(encodings_a: np.ndarray, encodings_b: np.ndarray):
     """
     detect the geographical relationships between objects.
-    :param x_a:
-    :param x_b:
+    :param encodings_a:
+    :param encodings_b:
     :return:
     """
-    n_a = x_a.shape[0]
-    n_b = x_b.shape[0]
+    n_a = encodings_a.shape[0]
+    n_b = encodings_b.shape[0]
 
-    vectors = np.tile(np.expand_dims(x_a, axis=1), (1, n_b, 1)) - np.tile(np.expand_dims(x_b, axis=0), (n_a, 1, 1))
+    vectors = np.tile(np.expand_dims(encodings_a, axis=1), (1, n_b, 1)) \
+              - np.tile(np.expand_dims(encodings_b, axis=0), (n_a, 1, 1))
 
     flatten_vectors = np.concatenate([vectors[:, :, :2], vectors[:, :, 2:]], axis=1)
     n_vectors = flatten_vectors.shape[1]

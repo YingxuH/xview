@@ -1,34 +1,28 @@
-import typing
+import functools
+from typing import List, Dict
 
 import numpy as np
 
-
-def identify_clusters(coordinates: np.ndarray) -> typing.List:
-    """
-    identify the clusters from bounding boxes coordinates.
-    :param coordinates:
-    :return:
-    """
-    pass
+from src.clusters_identifier import ClustersIdentifier
+from src.utils import detect_shape, detect_orientation
 
 
-def identify_shape(coordinates: np.ndarray) -> str:
-    """
-    return the shape of any particular cluster/group of objects.
-    :param coordinates:
-    :return:
-    """
-    pass
+def get_identify_clusters_function(blocks_info: Dict, block_id: str):
+    # dentify the clusters from bounding boxes coordinates.
+
+    identifier = ClustersIdentifier(blocks_info)
+    identifier.train()
+    return functools.partial(identifier.infer, block_id)
 
 
-def identify_relationship(coordinates_a: np.ndarray, coordinates_b: np.ndarray) -> str:
-    """
-    describe the relationships between objects.
-    :param coordinates_a:
-    :param coordinates_b:
-    :return:
-    """
-    pass
+def get_identify_shape_function(encoding: np.ndarray):
+    # return the shape of any particular cluster/group of objects.
+    return functools.partial(detect_shape, encoding=encoding)
+
+
+def get_identify_relationship_function(encodings_a: np.ndarray, encodings_b: np.ndarray):
+    # describe the relationships between objects.
+    return functools.partial(detect_orientation, encodings_a=encodings_a, encodings_b=encodings_b)
 
 
 prompt = """
