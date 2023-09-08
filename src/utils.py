@@ -290,22 +290,22 @@ def root_mean_squared_error(prediction, reference):
     return np.sqrt(np.square(preds_array - refers_array).sum()) / preds_array.shape[0]
 
 
-def detect_line_shape(encoding, ae_threshold=1, angles_threshold=0.25):
+def detect_line_shape(encodings, ae_threshold=1, angles_threshold=0.25):
     """
     detect whether a cluster of objects form a line shape.
-    :param encoding:
+    :param encodings:
     :param ae_threshold:
     :param angles_threshold:
     :return:
     """
-    if encoding.shape[0] < 3:
+    if encodings.shape[0] < 3:
         return False
 
-    center_x = encoding[:, [0, 2]].mean(axis=1)
-    center_y = encoding[:, [1, 3]].mean(axis=1)
+    center_x = encodings[:, [0, 2]].mean(axis=1)
+    center_y = encodings[:, [1, 3]].mean(axis=1)
 
-    tl_x, tl_y = encoding[:, 0], encoding[:, 1]
-    br_x, br_y = encoding[:, 2], encoding[:, 3]
+    tl_x, tl_y = encodings[:, 0], encodings[:, 1]
+    br_x, br_y = encodings[:, 2], encodings[:, 3]
 
     diameters = (np.abs(br_x - tl_x) + np.abs(br_y - tl_y)) / 2
 
@@ -336,12 +336,6 @@ def detect_line_shape(encoding, ae_threshold=1, angles_threshold=0.25):
     valid_angles = np.ptp(all_degrees) < angles_threshold
 
     return valid_aes and valid_angles
-
-
-def detect_shape(encoding):
-    if detect_line_shape(encoding):
-        return "line"
-    return "general"
 
 
 def unit_vector(vector):
