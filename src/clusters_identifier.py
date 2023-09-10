@@ -79,14 +79,5 @@ class ClustersIdentifier:
 
         return clusters, clusters_connectivity
 
-        # for i, cid in enumerate(np.unique(clusters)):
-        #     c_types = [original_types[i] for i, t in enumerate(original_types) if clusters[i] == cid]
-        #     objects_common_parents = self.tree.find_common_parent(np.unique(c_types))
-        #     if detect_line_shape(x[clusters == cid], ae_threshold=0.7):
-        #         print(f"group {cid} contains a line of {objects_common_parents}")
-        #     else:
-        #         print(f"group {cid} contains some {objects_common_parents}")
-        #
-        # describe_relations(clusters, clusters_connectivity, x)
 
 

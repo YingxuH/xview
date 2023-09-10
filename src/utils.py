@@ -345,11 +345,12 @@ def unit_vector(vector):
 
 def detect_orientation(encodings_a: np.ndarray, encodings_b: np.ndarray):
     """
-    detect the geographical relationships between objects.
+    whether object a is surrounded by object b.
     :param encodings_a:
     :param encodings_b:
     :return:
     """
+
     n_a = encodings_a.shape[0]
     n_b = encodings_b.shape[0]
 
@@ -372,13 +373,13 @@ def detect_orientation(encodings_a: np.ndarray, encodings_b: np.ndarray):
     is_outside = np.all(~objects_inside)
     is_mixture = (not is_inside) and (not is_outside)
 
-    unit_flatten_vectors = unit_vector(flatten_vectors)
-    orientation_objects = unit_vector(np.sum(unit_flatten_vectors, axis=-2))
-    orientation = unit_vector(np.sum(orientation_objects, axis=-2))
-    horizontal_string = ("right" if orientation[0] > 0 else "left") if np.abs(orientation[0]) > 0.6 else ""
-    vertical_string = ("bottom" if orientation[1] > 0 else "top") if np.abs(orientation[1]) > 0.6 else ""
-    orientation_string = f"{vertical_string} {horizontal_string}".strip()
-    return is_inside, is_outside, is_mixture, orientation_string
+    # unit_flatten_vectors = unit_vector(flatten_vectors)
+    # orientation_objects = unit_vector(np.sum(unit_flatten_vectors, axis=-2))
+    # orientation = unit_vector(np.sum(orientation_objects, axis=-2))
+    # horizontal_string = ("right" if orientation[0] > 0 else "left") if np.abs(orientation[0]) > 0.6 else ""
+    # vertical_string = ("bottom" if orientation[1] > 0 else "top") if np.abs(orientation[1]) > 0.6 else ""
+    # orientation_string = f"{vertical_string} {horizontal_string}".strip()
+    return is_inside, is_outside, is_mixture#, orientation_string
 
 
 def describe_relations(clusters, connectivity, encodings):
@@ -404,15 +405,27 @@ def describe_relations(clusters, connectivity, encodings):
                 visited_edges.add(current_edge)
         relations.append([source, valid_neighbours])
 
+    ans = "\n"
     for source, targets in relations:
         for target in targets:
-            is_inside, is_outside, is_mixture, orientation = detect_orientation(
+            is_pos_inside, is_pos_outside, is_pos_mixture = detect_orientation(
                 encodings[clusters == source, :-1],
                 encodings[clusters == target, :-1]
             )
-            if is_inside or is_mixture:
-                print(f"group {source} is between group {target}")
-            elif is_outside:
-                print(f"group {source} is on the {orientation} side of group {target}")
 
-    return relations
+            is_neg_inside, is_neg_outside, is_neg_mixture = detect_orientation(
+                encodings[clusters == target, :-1],
+                encodings[clusters == source, :-1]
+            )
+
+            if is_pos_inside:
+                ans += f"group {source} is surrounded by group {target}\n"
+
+            elif is_neg_inside:
+                ans += f"group {target} is surrounded by group {source}\n"
+            elif is_pos_mixture or is_neg_mixture:
+                ans += f"group {source} is adjacent to group {target}\n"
+            else:
+                ans += f"group {source} is close to group {target}\n"
+
+    return ans

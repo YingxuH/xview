@@ -1,10 +1,11 @@
 initial_prompt = """
 Today is {today_date}. You are an experienced editor of an aerial images magazine.
-You are provided with an aerial image, please provide caption for the image.
-Your caption should include possible patterns in objects' locations, such as clustering, geographical concentration, etc.
-You should include the shape of clusters and relations between clusters. 
+You are now provided with a remote sensing image, please provide caption for the image.
 
-There are roughly {num_objects} objects, which can be divided into {num_clusters} clusters. They are {cluster_names}
+Your caption should include patterns in objects' locations, such as the clustering of objects, and significant shapes formed by objects.
+You should also include spatial relations between objects/groups. 
+
+There are roughly {num_objects} objects, which formed {num_clusters} clusters. They are {cluster_names}.
 """
 
 identify_types_response_template = \
