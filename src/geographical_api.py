@@ -72,7 +72,7 @@ class GeographicalAPI:
         # TODO: identify close to, in reasonable distance to, or far away from
         # TODO: split the describe_relations function into function identifying the closest neighbour.
         # TODO: For the spatial relation part, only report surrounded by, next to something/far from everyone.
-        # TODO: only ask LLM to summarize. detect group name, increase temperature. 
+        # TODO: only ask LLM to summarize. detect group name, increase temperature.
         clusters_ids = np.unique(self.clusters)
         cluster_names = [f"cluster {cluster_id}" for cluster_id in clusters_ids]
 
