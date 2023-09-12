@@ -1,15 +1,53 @@
 import os
 import re
+import time
 import random
 from typing import Dict
 
 import numpy as np
-import statsmodels.api as sm
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from sklearn.linear_model import LinearRegression
 
 cmap = plt.get_cmap('viridis')
+
+from typing import List
+
+
+class MaxRetryException(Exception):
+    def __init__(self, exceptions: List[Exception]):
+        message = f"Maximal number of retries exceeded ({len(exceptions)}):\n"
+        for i, exception in enumerate(exceptions):
+            message += f" {i+1}. {exception.__class__.__name__}: {str(exception)}\n"
+
+        super().__init__(message)
+
+
+def retry_upon_exceptions(*exceptions, retry=3, wait_time=0):
+    def decorator(function):
+        def wrapper(*args, **kwargs):
+
+            result = None
+            current_retry = retry
+
+            past_exceptions = []
+            while current_retry > 0:
+                if current_retry < retry:
+                    time.sleep(wait_time)
+
+                try:
+                    result = function(*args, **kwargs)
+                    break
+                except exceptions as last_exception:
+                    past_exceptions.append(last_exception)
+                    current_retry -= 1
+
+            if current_retry <= 0:
+                raise MaxRetryException(past_exceptions)
+
+            return result
+        return wrapper
+    return decorator
 
 
 def random_test(blocks_info, image_path, key=None):
@@ -207,6 +245,25 @@ def box_distance(array_a, array_b):
     return np.sqrt(np.square(x_dist_min) + np.square(y_dist_min)) + 0.01
 
 
+def box_distance_array(array_a: np.ndarray, array_b: np.ndarray):
+    n_a, n_b = array_a.shape[0], array_b.shape[0]
+    array_a = np.tile(np.expand_dims(array_a, axis=0), (n_b, 1, 1))
+    array_b = np.tile(np.expand_dims(array_b, axis=1), (1, n_a, 1))
+
+    x_a, y_a = array_a[:, :, [0, 2]], array_a[:, :, [1, 3]]
+    x_b, y_b = array_b[:, :, [0, 2]], array_b[:, :, [1, 3]]
+
+    x_sign, y_sign = np.sign(x_a - x_b), np.sign(y_a - y_b)
+    x_dist, y_dist = x_a - np.flip(x_b), y_a - np.flip(y_b)
+
+    x_dist = np.clip(x_sign * x_dist, a_min=0, a_max=None)
+    y_dist = np.clip(y_sign * y_dist, a_min=0, a_max=None)
+
+    x_dist_min, y_dist_min = x_dist.min(axis=-1), y_dist.min(axis=-1)
+
+    return np.sqrt(np.square(x_dist_min) + np.square(y_dist_min)) + 0.01
+
+
 def box_distance_with_type(array_a, array_b, multiplier=1000):
     """
     calculate the distance between boxes considering the difference between object types.
@@ -236,7 +293,7 @@ def get_outlier_threshold(array):
     return median + (per_75 - per_25) * 1.5
 
 
-def get_distance_matrix(encodings: np.ndarray, func=box_distance_with_type):
+def get_distance_matrix(encodings: np.ndarray, func):
     n = encodings.shape[0]
     dist_matrix = np.zeros((n, n))
 
@@ -382,7 +439,7 @@ def detect_orientation(encodings_a: np.ndarray, encodings_b: np.ndarray):
     return is_inside, is_outside, is_mixture#, orientation_string
 
 
-def describe_relations(clusters, connectivity, encodings):
+def describe_relations(clusters, connectivity, encodings, lower_threshold, upper_threshold):
     if connectivity.shape[0] == 0:
         return []
 
@@ -420,12 +477,23 @@ def describe_relations(clusters, connectivity, encodings):
 
             if is_pos_inside:
                 ans += f"group {source} is surrounded by group {target}\n"
+                continue
 
-            elif is_neg_inside:
+            if is_neg_inside:
                 ans += f"group {target} is surrounded by group {source}\n"
-            elif is_pos_mixture or is_neg_mixture:
+                continue
+
+            if is_pos_mixture or is_neg_mixture:
                 ans += f"group {source} is adjacent to group {target}\n"
-            else:
+                continue
+
+            distances = box_distance_array(encodings[clusters == source], encodings[clusters == target])
+
+            if distances.min() < lower_threshold:
                 ans += f"group {source} is close to group {target}\n"
+                continue
+
+            if distances.min() > upper_threshold:
+                ans += f"group {source} is far from other objects\n"
 
     return ans
