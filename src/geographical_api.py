@@ -5,6 +5,7 @@ from tqdm.auto import tqdm
 from typing import List, Dict
 from pathlib import Path
 from collections import defaultdict
+from functools import partial
 
 import numpy as np
 from scipy.sparse import csr_matrix
@@ -34,6 +35,17 @@ from src.prompts import (
 
 _file_path = Path(__file__)
 _hierarchy_path = os.path.join(_file_path.parents[0], "hierarchy.json")
+
+
+_template = """
+The image has multiple objects, which have been clustered into groups based on their types and locations. 
+
+## objects/object groups information
+{objects_information}
+
+## significant geographical relations
+{objects_relations}
+"""
 
 
 def _decode_polygons(polygons, tree):
@@ -76,41 +88,47 @@ class GeographicalAPIManager:
                 "encodings": encodings
             }
 
+        self.hetero_multiplier = 1000
         self.cluster_distance_threshold_percentile = None
+        self.hetero_distances = None
         self.normal_distance_lower_percentile = None
         self.normal_distance_upper_percentile = None
         self.train()
 
     def train(self):
-        typed_distances_freq = defaultdict(lambda: [])
-        normal_distances = []
+        homo_distances_freq = defaultdict(lambda: [])
+        hetero_distances = []
 
         for block_id in tqdm(self.decoded_blocks_info, desc="Training"):
             types = self.decoded_blocks_info[block_id]["types"]
             encodings = self.decoded_blocks_info[block_id]["encodings"]
-            _, weights, edges_types = _minimum_spanning_tree(types, encodings)
 
-            valid_edges_condition = edges_types[:, 0] == edges_types[:, 1]
-            valid_weights_condition = weights > 0
+            box_distance_custom = partial(box_distance_with_type, multiplier=self.hetero_multiplier)
+            _, weights, edges_types = _minimum_spanning_tree(types, encodings, distance_func=box_distance_custom)
 
-            valid_indices = np.where(valid_weights_condition & valid_edges_condition)[0]
-            valid_weights = weights[valid_indices]
-            valid_edges_types = edges_types[valid_indices]
+            homo_edge_conditions = (weights > 0) & (edges_types[:, 0] == edges_types[:, 1])
+            hetero_edge_conditions = (weights > 0) & (edges_types[:, 0] != edges_types[:, 1])
+            
+            homo_edge_indices = np.where(homo_edge_conditions)[0]
+            homo_edge_weights = weights[homo_edge_indices]
+            homo_edge_types = edges_types[homo_edge_indices]
 
-            for i, (start_type, _) in enumerate(valid_edges_types):
-                typed_distances_freq[start_type].append(valid_weights[i])
+            hetero_edge_indices = np.where(hetero_edge_conditions)[0]
+            hetero_edge_weights = weights[hetero_edge_indices]
 
-            _, normal_weights, _ = _minimum_spanning_tree(types, encodings, distance_func=box_distance)
-            valid_indices = np.where(normal_weights > 0)[0]
-            valid_normal_weights = normal_weights[valid_indices]
-            normal_distances.append(valid_normal_weights)
+            for i, (start_type, _) in enumerate(homo_edge_types):
+                homo_distances_freq[start_type].append(homo_edge_weights[i])
 
-        all_distances_array = np.concatenate(normal_distances)
+            hetero_distances.append(hetero_edge_weights)
+
+        hetero_distances_array = np.sqrt(np.square(np.concatenate(hetero_distances)) - np.square(self.hetero_multiplier))
         self.cluster_distance_threshold_percentile = {
-            key: np.percentile(item, 75) for key, item in typed_distances_freq.items()
+            key: np.percentile(item, 75) for key, item in homo_distances_freq.items()
         }
-        self.normal_distance_lower_percentile = np.percentile(all_distances_array, 25)
-        self.normal_distance_upper_percentile = np.percentile(all_distances_array, 75)
+
+        self.hetero_distances = hetero_distances_array
+        self.normal_distance_lower_percentile = np.percentile(hetero_distances_array, 75)
+        self.normal_distance_upper_percentile = np.percentile(hetero_distances_array, 90)
 
     def infer(self, types, encodings):
         # polygons = get_polygons(self.unique_blocks_info[block_id], image_size=256)
@@ -136,16 +154,13 @@ class GeographicalAPIManager:
         return clusters, clusters_connectivity
 
     def get_api(self, block_id):
-        original_types = self.decoded_blocks_info[block_id]["original_types"]
-        types = self.decoded_blocks_info[block_id]["types"]
-        encodings = self.decoded_blocks_info[block_id]["encodings"]
+        block_info = self.decoded_blocks_info[block_id]
 
         tree = HierarchyTree(_hierarchy_path)
-        clusters, connectivity = self.infer(types, encodings)
+        clusters, connectivity = self.infer(block_info["types"], block_info["encodings"])
 
         return GeographicalAPI(
-            original_types,
-            encodings,
+            block_info,
             tree,
             clusters,
             connectivity,
@@ -155,29 +170,33 @@ class GeographicalAPIManager:
 
 
 class GeographicalAPI:
-    def __init__(self, original_types, encodings, tree, clusters, connectivity, lower_threshold, upper_threshold):
-        self.original_types = original_types
-        self.encodings = encodings
+    def __init__(self, block_info, tree, clusters, connectivity, lower_threshold, upper_threshold):
+        self.original_types = block_info["original_types"]
+        self.encodings = block_info["encodings"]
         self.tree = tree
         self.clusters = clusters
         self.connectivity = connectivity
         self.lower_threshold = lower_threshold
         self.upper_threshold = upper_threshold
 
-    def _describe_objects(self, encodings, types):
-        objects_common_parents = self.tree.find_common_parent(np.unique(types))
-        shape_prefix = "some"
-        if encodings.shape[0] == 1:
-            shape_prefix = "a"
+    def _get_common_object(self, cluster_id):
+        types = np.array(self.original_types)[self.clusters == cluster_id]
+        return self.tree.find_common_parent(np.unique(types))
+
+    def _get_detailed_objects_of_group(self, cluster_id):
+        types = np.array(self.original_types)[self.clusters == cluster_id]
+        return [f"{cnt} {t}" for t, cnt in zip(*np.unique(types, return_counts=True))]
+
+    def _describe_objects(self, cluster_id):
+        encodings = self.encodings[self.clusters == cluster_id]
+        objects_common_parent = self._get_common_object(cluster_id)
+
+        shape_prefix = encodings.shape[0]
         if detect_line_shape(encodings, ae_threshold=0.7):
-            shape_prefix = "a line of"
+            shape_prefix = f"a line of {shape_prefix}"
+        return f"{shape_prefix} {objects_common_parent}"
 
-        return f"{shape_prefix} {objects_common_parents}"
-
-    def fill_prompt(self):
-        if self.connectivity.shape[0] == 0:
-            return []
-
+    def _get_relations(self):
         cluster_ids, counts = np.unique(self.clusters, return_counts=True)
 
         queue = [cluster_ids[np.argmax(counts)]]
@@ -198,6 +217,23 @@ class GeographicalAPI:
 
             if valid_neighbours:
                 relations.append([source, valid_neighbours])
+        return relations
+
+    def get_list_attributes(self):
+        cluster_ids, counts = np.unique(self.clusters, return_counts=True)
+        group_key = "group {cluster_id}"
+
+        objects_information = []
+        for cid in cluster_ids:
+            current_key = group_key.format(cluster_id=cid)
+            current_desc = self._describe_objects(cid)
+            current_details = self._get_detailed_objects_of_group(cid)
+            info = f"{current_key}: {current_desc}"
+            if len(current_details) > 1:
+                info = f"{info}, including {', '.join(current_details)}"
+            objects_information.append(info)
+
+        relations = self._get_relations()
 
         objects_relations = []
         visited = set()
@@ -206,11 +242,8 @@ class GeographicalAPI:
                 source_encodings = self.encodings[self.clusters == source]
                 target_encodings = self.encodings[self.clusters == target]
 
-                source_types = np.array(self.original_types)[self.clusters == source]
-                target_types = np.array(self.original_types)[self.clusters == target]
-
-                source_description = self._describe_objects(source_encodings, source_types)
-                target_description = self._describe_objects(target_encodings, target_types)
+                source_key = group_key.format(cluster_id=source)
+                target_key = group_key.format(cluster_id=target)
 
                 is_pos_inside, is_pos_outside, is_pos_mixture = detect_orientation(
                     source_encodings[:, :-1],
@@ -221,44 +254,118 @@ class GeographicalAPI:
                     target_encodings[:, :-1],
                     source_encodings[:, :-1]
                 )
-
                 if is_pos_inside:
-                    objects_relations.append(f"{source_description} is surrounded by {target_description}")
-                    visited.add([source, target])
+                    objects_relations.append(
+                        f"{source_key} is surrounded by {target_key}"
+                    )
+                    visited.update([source, target])
                     continue
 
                 if is_neg_inside:
-                    objects_relations.append(f"{target_description} is surrounded by {source_description}")
-                    visited.add([source, target])
+                    objects_relations.append(
+                        f"{target_key} is surrounded by {source_key}"
+                    )
+                    visited.update([source, target])
                     continue
 
                 if is_pos_mixture or is_neg_mixture:
-                    objects_relations.append(f"{source_description} is adjacent to group {target_description}")
-                    visited.add([source, target])
+                    objects_relations.append(
+                        f"{source_key} is adjacent to group {target_key}"
+                    )
+                    visited.update([source, target])
                     continue
 
                 distances = box_distance_array(source_encodings, target_encodings)
 
                 if distances.min() < self.lower_threshold:
-                    objects_relations.append(f"{source_description} is close to {target_description}")
-                    visited.add([source, target])
+                    objects_relations.append(
+                        f"{source_key} is close to {target_key}"
+                    )
+                    visited.update([source, target])
                     continue
 
-                if distances.min() > self.upper_threshold:
-                    objects_relations.append(f"{source_description} is far from other objects")
+                if distances.min() > self.upper_threshold and len(targets) == 1:
+                    objects_relations.append(
+                        f"{source_key} is far from other objects"
+                    )
                     visited.update([source])
                     continue
 
-            objects_existences = []
-            for cid in cluster_ids:
-                if cid not in visited:
-                    current_encodings = self.encodings[self.clusters == cid]
-                    current_types = np.array(self.original_types)[self.clusters == cid]
-                    current_description = self._describe_objects(current_encodings, current_types)
+        return objects_information, objects_relations, visited
 
-                    objects_existences.append(f"There is/are {current_description} in the image.")
+    # def get_dictionary_attributes(self):
+    #     attributes = {}
+    #     attribute_key = "group {cluster_id}"
+    #     cluster_ids, counts = np.unique(self.clusters, return_counts=True)
+    #
+    #     for cid in cluster_ids:
+    #         current_key = attribute_key.format(cluster_id=cid)
+    #         attributes[current_key] = {
+    #             "general object type": self._get_common_object(cid),
+    #             "detailed objects included": self._get_detailed_objects_of_group(cid)
+    #         }
+    #
+    #     relations = self._get_relations()
+    #     visited = set()
+    #     for source, targets in relations:
+    #         for target in targets:
+    #             source_key = attribute_key.format(cluster_id=source)
+    #             target_key = attribute_key.format(cluster_id=target)
+    #
+    #             source_encodings = self.encodings[self.clusters == source]
+    #             target_encodings = self.encodings[self.clusters == target]
+    #
+    #             source_supporting = "is" if source_encodings.shape[0] == 1 else "are"
+    #             target_supporting = "is" if target_encodings.shape[0] == 1 else "are"
+    #
+    #             is_pos_inside, is_pos_outside, is_pos_mixture = detect_orientation(
+    #                 source_encodings[:, :-1],
+    #                 target_encodings[:, :-1]
+    #             )
+    #
+    #             is_neg_inside, is_neg_outside, is_neg_mixture = detect_orientation(
+    #                 target_encodings[:, :-1],
+    #                 source_encodings[:, :-1]
+    #             )
+    #
+    #             if is_pos_inside:
+    #                 attributes[source_key][f"{source_supporting} surrounded by"] = target_key
+    #                 visited.update([source, target])
+    #                 continue
+    #
+    #             if is_neg_inside:
+    #                 attributes[target_key][f"{target_supporting} surrounded by"] = source_key
+    #                 visited.update([source, target])
+    #                 continue
+    #
+    #             if is_pos_mixture or is_neg_mixture:
+    #                 attributes[source_key][f"{source_supporting} adjacent to"] = target_key
+    #                 visited.update([source, target])
+    #                 continue
+    #
+    #             distances = box_distance_array(source_encodings, target_encodings)
+    #
+    #             if distances.min() < self.lower_threshold:
+    #                 attributes[source_key][f"{source_supporting} close to"] = target_key
+    #                 visited.update([source, target])
+    #                 continue
+    #
+    #             if distances.min() > self.upper_threshold:
+    #                 if len(targets) == 1:
+    #                     attributes[source_key][f"{source_supporting} far from"] = "other objects"
+    #                     visited.update([source])
+    #                 else:
+    #                     attributes[source_key][f"{source_supporting} far from"] = target_key
+    #                 continue
+    #
+    #     return attributes, visited
 
-            return objects_relations, objects_existences
+    def get_image_description(self):
+        objects_information, objects_relations, _ = self.get_list_attributes()
+        return _template.format(
+            objects_information="\n".join(objects_information),
+            objects_relations="\n".join(objects_relations)
+        )
 
     def identify_types_of_objects(self, cluster_id: int) -> str:
         """ provide the objects' type for the specified cluster. """
@@ -319,5 +426,5 @@ if __name__ == "__main__":
     api = api_manager.get_api(block_id)
 
     polygons = get_polygons(api_manager.blocks_info[block_id], image_size=256)
-    print(api.fill_prompt())
+    print(api.get_default_descriptions())
     random_test_sub_blocks(polygons, block_id, api.clusters, r"D:\xview\train_blocks\train_blocks")
