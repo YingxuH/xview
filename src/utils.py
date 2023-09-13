@@ -90,10 +90,11 @@ def random_test(blocks_info, image_path, key=None):
     return key
 
 
-def random_test_sub_blocks(polygons, key, labels, image_path):
+def random_test_sub_blocks(polygons, key, labels, texts, image_path):
     unique_labels, unique_indices = np.unique(labels, return_index=True)
     colors = cmap(np.linspace(0, 1, unique_labels.shape[0]))
     colors_map = dict(zip(unique_labels, colors))
+    print(colors_map)
 
     image_file_path = os.path.join(image_path, key + ".png")
 
@@ -120,6 +121,12 @@ def random_test_sub_blocks(polygons, key, labels, image_path):
         # Add the patch to the Axes
         plt.gca().add_patch(rect)
         rectangles.append(rect)
+
+        rx, ry = rect.get_xy()
+        cx = rx + rect.get_width() / 2.0
+        cy = ry + rect.get_height() / 2.0
+
+        plt.annotate(texts[i], (cx, cy), color="w", weight="bold", fontsize=8, ha='center', va='center')
 
     unique_rects = [rectangles[i] for i in unique_indices]
     plt.legend(unique_rects, unique_labels)
