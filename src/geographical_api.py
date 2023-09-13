@@ -37,9 +37,61 @@ _file_path = Path(__file__)
 _hierarchy_path = os.path.join(_file_path.parents[0], "hierarchy.json")
 
 
-_template = """
-The image has multiple objects, which have been clustered into groups based on their types and locations. 
+_system_message_template = "today is 13-09-2023, you are a helpful assistant who is proficient at understanding satellite images. "
 
+_prompt_template = """
+You will be provided with description of a satellite image. Please provide several captions as strings in a python list.
+The image has multiple objects, which have been clustered into groups based on their types and locations. 
+Here are some examples:
+
+# example image description 1:
+## objects/object groups information
+group 0: 1 damaged building
+group 1: a line of 5 building
+group 2: a line of 3 building
+
+## significant geographical relations
+group 2 is next to group 0
+
+## captions
+["There are two lines of buildings in the image.", "A damaged building is next to a line of buildings in the image"]
+
+# example image description 2:
+## objects/object groups information
+group 0: 1 building
+group 1: 1 building
+group 2: 1 truck
+group 3: 2 building, including 1 building, 1 shed
+group 4: 2 building, including 1 building, 1 damaged building
+
+## significant geographical relations
+group 3 is next to group 1
+
+## captions
+["There are several buildings and one truck in the image.", "A building and one shed sit side by side", "There is a building and a damaged building standing together.", "Some buildings are very close to each other while some others are not"]
+
+# example image description 3:
+## objects/object groups information
+group 0: 1 building
+group 1: a line of 3 building
+
+## significant geographical relations
+None
+
+## captions
+["There is a solitary building in the image.", "There is a line of three buildings in the image."]
+
+# real image description:
+## objects/object groups information
+{objects_information}
+
+## significant geographical relations
+{objects_relations}
+
+## captions
+"""
+
+_short_prompt_template = """
 ## objects/object groups information
 {objects_information}
 
@@ -293,79 +345,21 @@ class GeographicalAPI:
 
         return objects_information, objects_relations, visited
 
-    # def get_dictionary_attributes(self):
-    #     attributes = {}
-    #     attribute_key = "group {cluster_id}"
-    #     cluster_ids, counts = np.unique(self.clusters, return_counts=True)
-    #
-    #     for cid in cluster_ids:
-    #         current_key = attribute_key.format(cluster_id=cid)
-    #         attributes[current_key] = {
-    #             "general object type": self._get_common_object(cid),
-    #             "detailed objects included": self._get_detailed_objects_of_group(cid)
-    #         }
-    #
-    #     relations = self._get_relations()
-    #     visited = set()
-    #     for source, targets in relations:
-    #         for target in targets:
-    #             source_key = attribute_key.format(cluster_id=source)
-    #             target_key = attribute_key.format(cluster_id=target)
-    #
-    #             source_encodings = self.encodings[self.clusters == source]
-    #             target_encodings = self.encodings[self.clusters == target]
-    #
-    #             source_supporting = "is" if source_encodings.shape[0] == 1 else "are"
-    #             target_supporting = "is" if target_encodings.shape[0] == 1 else "are"
-    #
-    #             is_pos_inside, is_pos_outside, is_pos_mixture = detect_orientation(
-    #                 source_encodings[:, :-1],
-    #                 target_encodings[:, :-1]
-    #             )
-    #
-    #             is_neg_inside, is_neg_outside, is_neg_mixture = detect_orientation(
-    #                 target_encodings[:, :-1],
-    #                 source_encodings[:, :-1]
-    #             )
-    #
-    #             if is_pos_inside:
-    #                 attributes[source_key][f"{source_supporting} surrounded by"] = target_key
-    #                 visited.update([source, target])
-    #                 continue
-    #
-    #             if is_neg_inside:
-    #                 attributes[target_key][f"{target_supporting} surrounded by"] = source_key
-    #                 visited.update([source, target])
-    #                 continue
-    #
-    #             if is_pos_mixture or is_neg_mixture:
-    #                 attributes[source_key][f"{source_supporting} adjacent to"] = target_key
-    #                 visited.update([source, target])
-    #                 continue
-    #
-    #             distances = box_distance_array(source_encodings, target_encodings)
-    #
-    #             if distances.min() < self.lower_threshold:
-    #                 attributes[source_key][f"{source_supporting} close to"] = target_key
-    #                 visited.update([source, target])
-    #                 continue
-    #
-    #             if distances.min() > self.upper_threshold:
-    #                 if len(targets) == 1:
-    #                     attributes[source_key][f"{source_supporting} far from"] = "other objects"
-    #                     visited.update([source])
-    #                 else:
-    #                     attributes[source_key][f"{source_supporting} far from"] = target_key
-    #                 continue
-    #
-    #     return attributes, visited
-
     def get_image_description(self):
         objects_information, objects_relations, _ = self.get_list_attributes()
-        return _template.format(
-            objects_information="\n".join(objects_information),
-            objects_relations="\n".join(objects_relations)
+        information_str = "\n".join(objects_information) if objects_information else "None"
+        relations_str = "\n".join(objects_relations) if objects_relations else "None"
+
+        current_prompt = _prompt_template.format(
+            objects_information=information_str,
+            objects_relations=relations_str
         )
+
+        current_short_prompt = _short_prompt_template.format(
+            objects_information=information_str,
+            objects_relations=relations_str
+        )
+        return _system_message_template, current_prompt, current_short_prompt
 
     def identify_types_of_objects(self, cluster_id: int) -> str:
         """ provide the objects' type for the specified cluster. """
@@ -426,5 +420,5 @@ if __name__ == "__main__":
     api = api_manager.get_api(block_id)
 
     polygons = get_polygons(api_manager.blocks_info[block_id], image_size=256)
-    print(api.get_default_descriptions())
+    # print(api.get_default_descriptions())
     random_test_sub_blocks(polygons, block_id, api.clusters, r"D:\xview\train_blocks\train_blocks")

@@ -2,16 +2,20 @@ import os
 import re
 import time
 import random
-from typing import Dict
+from typing import Dict, List
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from sklearn.linear_model import LinearRegression
 
+
 cmap = plt.get_cmap('viridis')
 
-from typing import List
+
+class LLMValidationException(Exception):
+    def __init__(self, message):
+        super(LLMValidationException, self).__init__(message)
 
 
 class MaxRetryException(Exception):
@@ -20,7 +24,7 @@ class MaxRetryException(Exception):
         for i, exception in enumerate(exceptions):
             message += f" {i+1}. {exception.__class__.__name__}: {str(exception)}\n"
 
-        super().__init__(message)
+        super(MaxRetryException, self).__init__(message)
 
 
 def retry_upon_exceptions(*exceptions, retry=3, wait_time=0):
@@ -84,17 +88,17 @@ def random_test(blocks_info, image_path, key=None):
 
     plt.xlim(lb_x, ru_x)
     plt.ylim(ru_y, lb_y)
+
     plt.show()
     plt.close()
 
     return key
 
 
-def random_test_sub_blocks(polygons, key, labels, texts, image_path):
+def random_test_sub_blocks(polygons, key, labels, texts, image_path, save_path):
     unique_labels, unique_indices = np.unique(labels, return_index=True)
     colors = cmap(np.linspace(0, 1, unique_labels.shape[0]))
     colors_map = dict(zip(unique_labels, colors))
-    print(colors_map)
 
     image_file_path = os.path.join(image_path, key + ".png")
 
@@ -130,7 +134,9 @@ def random_test_sub_blocks(polygons, key, labels, texts, image_path):
 
     unique_rects = [rectangles[i] for i in unique_indices]
     plt.legend(unique_rects, unique_labels)
-    plt.show()
+    file_name = f"{key}.png"
+    plt.savefig(os.path.join(save_path, file_name))
+    # plt.show()
     plt.close()
 
     return key
@@ -242,8 +248,12 @@ def box_distance(array_a, array_b):
     x_b, y_b = array_b[[0, 2]], array_b[[1, 3]]
 
     x_sign, y_sign = np.sign(x_a - x_b), np.sign(y_a - y_b)
-    x_dist, y_dist = x_a - np.flip(x_b), y_a - np.flip(y_b)
+    x_sign_valid = np.clip(x_sign * np.flip(x_sign), a_min=0, a_max=None)
+    y_sign_valid = np.clip(y_sign * np.flip(y_sign), a_min=0, a_max=None)
+    x_sign = x_sign * x_sign_valid
+    y_sign = y_sign * y_sign_valid
 
+    x_dist, y_dist = x_a - np.flip(x_b), y_a - np.flip(y_b)
     x_dist = np.clip(x_sign * x_dist, a_min=0, a_max=None)
     y_dist = np.clip(y_sign * y_dist, a_min=0, a_max=None)
 
@@ -261,8 +271,12 @@ def box_distance_array(array_a: np.ndarray, array_b: np.ndarray):
     x_b, y_b = array_b[:, :, [0, 2]], array_b[:, :, [1, 3]]
 
     x_sign, y_sign = np.sign(x_a - x_b), np.sign(y_a - y_b)
-    x_dist, y_dist = x_a - np.flip(x_b), y_a - np.flip(y_b)
+    x_sign_valid = np.clip(x_sign * np.flip(x_sign, axis=-1), a_min=0, a_max=None)
+    y_sign_valid = np.clip(y_sign * np.flip(y_sign, axis=-1), a_min=0, a_max=None)
+    x_sign = x_sign * x_sign_valid
+    y_sign = y_sign * y_sign_valid
 
+    x_dist, y_dist = x_a - np.flip(x_b, axis=-1), y_a - np.flip(y_b, axis=-1)
     x_dist = np.clip(x_sign * x_dist, a_min=0, a_max=None)
     y_dist = np.clip(y_sign * y_dist, a_min=0, a_max=None)
 

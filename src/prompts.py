@@ -26,27 +26,24 @@ group 1: a line of 5 building
 group 2: a line of 3 building
 
 ## significant geographical relations
-group 2 is close to group 0
+group 2 is next to group 0
 
 ## captions
-["There are two lines of buildings in the image.", "A damaged building is close to a line of buildings in the image"]
+["There are two lines of buildings in the image.", "A damaged building is next to a line of buildings in the image"]
 """,
 """
 ## objects/object groups information
 group 0: 1 building
 group 1: 1 building
-group 2: 1 building
-group 3: 1 damaged building
-group 4: 1 truck
-group 5: 2 building, including 1 building, 1 shed
+group 2: 1 truck
+group 3: 2 building, including 1 building, 1 shed
+group 4: 2 building, including 1 building, 1 damaged building
 
 ## significant geographical relations
-group 5 is close to group 1
-group 2 is close to group 3
+group 3 is next to group 1
 
 ## captions
-["There are several buildings and one truck in the image.", ""]
-
+["There are several buildings and one truck in the image.", "A building and one shed sit side by side", "There is a building and a damaged building standing together.", "A buiilding is located next to another two buildings"]
 """
 
 ]
