@@ -14,8 +14,6 @@ from openai.error import APIError, Timeout, APIConnectionError, ServiceUnavailab
 from src.geographical_api import *
 from src.utils import *
 
-openai.api_key = "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"
-
 
 @retry_upon_exceptions(
     APIError, Timeout, APIConnectionError, ServiceUnavailableError,
