@@ -37,9 +37,9 @@ _file_path = Path(__file__)
 _hierarchy_path = os.path.join(_file_path.parents[0], "hierarchy.json")
 
 
-_system_message_template = "today is 13-09-2023, you are a helpful assistant who is proficient at understanding satellite images."
+_template = """
+today is 13-09-2023, you are a helpful assistant who is proficient at understanding satellite images. 
 
-_prompt_template = """
 You will be provided with description of a satellite image. Please provide several captions as strings in a python list.
 The image has multiple objects, which have been clustered into groups based on their types and locations. 
 Here are some examples:
@@ -68,18 +68,7 @@ group 4: 2 building, including 1 building, 1 damaged building
 group 3 is next to group 1
 
 ## captions
-["There are several buildings and one truck in the image.", "A building and one shed sit side by side", "There is a building and a damaged building standing together.", "Some buildings are very close to each other while some others are not"]
-
-# example image description 3:
-## objects/object groups information
-group 0: 1 building
-group 1: a line of 3 building
-
-## significant geographical relations
-None
-
-## captions
-["There is a solitary building in the image.", "There is a line of three buildings in the image."]
+["There are several buildings and one truck in the image.", "A building and one shed sit side by side", "There is a building and a damaged building standing together.", "A buiilding is located next to another two buildings"]
 
 # real image description:
 ## objects/object groups information
@@ -89,14 +78,6 @@ None
 {objects_relations}
 
 ## captions
-"""
-
-_short_prompt_template = """
-## objects/object groups information
-{objects_information}
-
-## significant geographical relations
-{objects_relations}
 """
 
 
@@ -349,17 +330,10 @@ class GeographicalAPI:
         objects_information, objects_relations, _ = self.get_list_attributes()
         information_str = "\n".join(objects_information) if objects_information else "None"
         relations_str = "\n".join(objects_relations) if objects_relations else "None"
-
-        current_prompt = _prompt_template.format(
+        return _template.format(
             objects_information=information_str,
             objects_relations=relations_str
         )
-
-        current_short_prompt = _short_prompt_template.format(
-            objects_information=information_str,
-            objects_relations=relations_str
-        )
-        return _system_message_template, current_prompt, current_short_prompt
 
     def identify_types_of_objects(self, cluster_id: int) -> str:
         """ provide the objects' type for the specified cluster. """
@@ -420,5 +394,5 @@ if __name__ == "__main__":
     api = api_manager.get_api(block_id)
 
     polygons = get_polygons(api_manager.blocks_info[block_id], image_size=256)
-    # print(api.get_default_descriptions())
+    print(api.get_default_descriptions())
     random_test_sub_blocks(polygons, block_id, api.clusters, r"D:\xview\train_blocks\train_blocks")
