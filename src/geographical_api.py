@@ -289,6 +289,7 @@ class GeographicalAPI:
 
         objects_relations = []
         visited = set()
+        print(relations)
         for source, targets in relations:
             for target in targets:
                 source_encodings = self.encodings[self.clusters == source]
