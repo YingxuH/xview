@@ -2,7 +2,7 @@ import os
 import re
 import time
 import random
-from typing import Dict, List
+from typing import Dict, List, Union
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -235,7 +235,7 @@ def get_polygons(block, image_size=256) -> Dict:
 
 def box_distance(array_a, array_b):
     """
-    calcualte the distance between any two boxes.
+    calcualte the distance between any two boxes. Do not consider the type difference
     :param array_a:
     :param array_b:
     :return:
@@ -314,8 +314,11 @@ def get_outlier_threshold(array):
     return median + (per_75 - per_25) * 1.5
 
 
-def get_distance_matrix(encodings: np.ndarray, func):
-    n = encodings.shape[0]
+def get_distance_matrix(encodings: Union[np.ndarray, List], func):
+    if isinstance(encodings, np.array):
+        n = encodings.shape[0]
+    else:
+        n = len(encodings)
     dist_matrix = np.zeros((n, n))
 
     for i in range(n):

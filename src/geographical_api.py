@@ -2,7 +2,7 @@ import os
 import json
 from datetime import date
 from tqdm.auto import tqdm
-from typing import List, Dict
+from typing import List, Dict, Union
 from pathlib import Path
 from collections import defaultdict
 from functools import partial
@@ -10,7 +10,6 @@ from functools import partial
 import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree
-
 
 from src.hierarchy_tree import HierarchyTree
 from src.utils import (
@@ -32,10 +31,8 @@ from src.prompts import (
     identify_relations_response_template
 )
 
-
 _file_path = Path(__file__)
 _hierarchy_path = os.path.join(_file_path.parents[0], "hierarchy.json")
-
 
 _system_message_template = "today is 13-09-2023, you are a helpful assistant who is proficient at understanding satellite images."
 
@@ -111,14 +108,19 @@ def _decode_polygons(polygons, tree):
     return original_types, types, combined_encodings
 
 
-def _minimum_spanning_tree(types, encodings, distance_func=box_distance_with_type):
+def _minimum_spanning_tree(encodings: Union[List, np.array], distance_func=box_distance_with_type):
+    """
+    :param types:
+    :param encodings: numpy array: nx2
+    :param distance_func:
+    :return:
+    """
     dist_matrix = csr_matrix(get_distance_matrix(encodings, func=distance_func))
     weights_matrix = minimum_spanning_tree(dist_matrix).toarray()
 
     edges = np.stack(np.triu_indices(n=weights_matrix.shape[0], k=1)).T
     weights = weights_matrix[np.triu_indices(n=weights_matrix.shape[0], k=1)]
-    edges_types = np.array(types)[edges]
-    return edges, weights, edges_types
+    return edges, weights
 
 
 class GeographicalAPIManager:
@@ -156,11 +158,12 @@ class GeographicalAPIManager:
             encodings = self.decoded_blocks_info[block_id]["encodings"]
 
             box_distance_custom = partial(box_distance_with_type, multiplier=self.hetero_multiplier)
-            _, weights, edges_types = _minimum_spanning_tree(types, encodings, distance_func=box_distance_custom)
+            edges, weights= _minimum_spanning_tree(encodings, distance_func=box_distance_custom)
+            edges_types = np.array(types)[edges]
 
             homo_edge_conditions = (weights > 0) & (edges_types[:, 0] == edges_types[:, 1])
             hetero_edge_conditions = (weights > 0) & (edges_types[:, 0] != edges_types[:, 1])
-            
+
             homo_edge_indices = np.where(homo_edge_conditions)[0]
             homo_edge_weights = weights[homo_edge_indices]
             homo_edge_types = edges_types[homo_edge_indices]
@@ -173,7 +176,8 @@ class GeographicalAPIManager:
 
             hetero_distances.append(hetero_edge_weights)
 
-        hetero_distances_array = np.sqrt(np.square(np.concatenate(hetero_distances)) - np.square(self.hetero_multiplier))
+        hetero_distances_array = np.sqrt(
+            np.square(np.concatenate(hetero_distances)) - np.square(self.hetero_multiplier))
         self.cluster_distance_threshold_percentile = {
             key: np.percentile(item, 75) for key, item in homo_distances_freq.items()
         }
@@ -187,7 +191,8 @@ class GeographicalAPIManager:
         # polygons["polygons"] = [poly for poly in polygons["polygons"] if poly["object"] != "construction site"]
         # original_types = [poly['object'] for poly in polygons["polygons"]]
 
-        edges, weights, edges_types = _minimum_spanning_tree(types, encodings)
+        edges, weights = _minimum_spanning_tree(encodings)
+        edges_types = np.array(types)[edges]
 
         upper_threshold = np.array([self.cluster_distance_threshold_percentile[t] for t in edges_types[:, 0]])
 
@@ -199,9 +204,18 @@ class GeographicalAPIManager:
         valid_edges = edges[valid_indices]
         clusters = get_clusters_ids(encodings.shape[0], valid_edges)
 
-        invalid_indices = np.where(none_empty_weights_condition & ~(valid_weights_condition & valid_edges_condition))[0]
-        invalid_edges = edges[invalid_indices]
-        clusters_connectivity = np.concatenate([clusters[invalid_edges], np.flip(clusters[invalid_edges], axis=1)])
+        # TODO: check this
+        cluster_lst = []
+        for cid in np.unique(clusters):
+            cluster_lst.append(encodings[clusters == cid])
+
+        cluster_edges, cluster_weights = _minimum_spanning_tree(cluster_lst)
+        none_empty_weights_condition = cluster_weights > 0
+        clusters_connectivity = np.concatenate([cluster_edges, np.flip(cluster_edges, axis=1)])
+
+        # invalid_indices = np.where(none_empty_weights_condition & ~(valid_weights_condition & valid_edges_condition))[0]
+        # invalid_edges = edges[invalid_indices]  # n x 2
+        # clusters_connectivity = np.concatenate([clusters[invalid_edges], np.flip(clusters[invalid_edges], axis=1)])
 
         return clusters, clusters_connectivity
 
@@ -337,6 +351,7 @@ class GeographicalAPI:
                     visited.update([source, target])
                     continue
 
+                # TODO: replace to self.connectivity[self.connectivity[0]==source].shape[0] == 1
                 if distances.min() > self.upper_threshold and len(targets) == 1:
                     objects_relations.append(
                         f"{source_key} is far from other objects"
