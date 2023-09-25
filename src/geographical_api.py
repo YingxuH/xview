@@ -209,13 +209,10 @@ class GeographicalAPIManager:
         for cid in np.unique(clusters):
             cluster_lst.append(encodings[clusters == cid])
 
-        cluster_edges, cluster_weights = _minimum_spanning_tree(cluster_lst)
+        cluster_edges, cluster_weights = _minimum_spanning_tree(cluster_lst, distance_func=box_distance_array)
         none_empty_weights_condition = cluster_weights > 0
-        clusters_connectivity = np.concatenate([cluster_edges, np.flip(cluster_edges, axis=1)])
-
-        # invalid_indices = np.where(none_empty_weights_condition & ~(valid_weights_condition & valid_edges_condition))[0]
-        # invalid_edges = edges[invalid_indices]  # n x 2
-        # clusters_connectivity = np.concatenate([clusters[invalid_edges], np.flip(clusters[invalid_edges], axis=1)])
+        valid_cluster_edges = cluster_edges[none_empty_weights_condition]
+        clusters_connectivity = np.concatenate([valid_cluster_edges, np.flip(valid_cluster_edges, axis=1)])
 
         return clusters, clusters_connectivity
 
@@ -299,67 +296,70 @@ class GeographicalAPI:
                 info = f"{info}, including {', '.join(current_details)}"
             objects_information.append(info)
 
-        relations = self._get_relations()
+        # relations = self._get_relations()
 
         objects_relations = []
-        visited = set()
-        print(relations)
-        for source, targets in relations:
-            for target in targets:
-                source_encodings = self.encodings[self.clusters == source]
-                target_encodings = self.encodings[self.clusters == target]
+        visited_edges = set()
+        # print(relations)
+        for source, target in self.connectivity:
+            edge_key = tuple(sorted([source, target]))
+            if edge_key in visited_edges:
+                continue
+            source_encodings = self.encodings[self.clusters == source]
+            target_encodings = self.encodings[self.clusters == target]
 
-                source_key = group_key.format(cluster_id=source)
-                target_key = group_key.format(cluster_id=target)
+            source_key = group_key.format(cluster_id=source)
+            target_key = group_key.format(cluster_id=target)
 
-                is_pos_inside, is_pos_outside, is_pos_mixture = detect_orientation(
-                    source_encodings[:, :-1],
-                    target_encodings[:, :-1]
+            is_pos_inside, is_pos_outside, is_pos_mixture = detect_orientation(
+                source_encodings[:, :-1],
+                target_encodings[:, :-1]
+            )
+
+            is_neg_inside, is_neg_outside, is_neg_mixture = detect_orientation(
+                target_encodings[:, :-1],
+                source_encodings[:, :-1]
+            )
+            if is_pos_inside:
+                objects_relations.append(
+                    f"{source_key} is surrounded by {target_key}"
                 )
+                visited_edges.add(edge_key)
+                continue
 
-                is_neg_inside, is_neg_outside, is_neg_mixture = detect_orientation(
-                    target_encodings[:, :-1],
-                    source_encodings[:, :-1]
+            if is_neg_inside:
+                objects_relations.append(
+                    f"{target_key} is surrounded by {source_key}"
                 )
-                if is_pos_inside:
-                    objects_relations.append(
-                        f"{source_key} is surrounded by {target_key}"
-                    )
-                    visited.update([source, target])
-                    continue
+                visited_edges.add(edge_key)
+                continue
 
-                if is_neg_inside:
-                    objects_relations.append(
-                        f"{target_key} is surrounded by {source_key}"
-                    )
-                    visited.update([source, target])
-                    continue
+            if is_pos_mixture or is_neg_mixture:
+                objects_relations.append(
+                    f"{source_key} is adjacent to group {target_key}"
+                )
+                visited_edges.add(edge_key)
+                continue
 
-                if is_pos_mixture or is_neg_mixture:
-                    objects_relations.append(
-                        f"{source_key} is adjacent to group {target_key}"
-                    )
-                    visited.update([source, target])
-                    continue
+            distances = box_distance_array(source_encodings, target_encodings)
+            source_edge_count = self.connectivity[self.connectivity[:, 0] == source].shape[0]
 
-                distances = box_distance_array(source_encodings, target_encodings)
+            if distances.min() < self.lower_threshold:
+                objects_relations.append(
+                    f"{source_key} is close to {target_key}"
+                )
+                visited_edges.add(edge_key)
+                continue
 
-                if distances.min() < self.lower_threshold:
-                    objects_relations.append(
-                        f"{source_key} is close to {target_key}"
-                    )
-                    visited.update([source, target])
-                    continue
+            # TODO: replace to self.connectivity[self.connectivity[0]==source].shape[0] == 1
+            if distances.min() > self.upper_threshold and source_edge_count == 1:
+                objects_relations.append(
+                    f"{source_key} is far from other objects"
+                )
+                visited_edges.add(edge_key)
+                continue
 
-                # TODO: replace to self.connectivity[self.connectivity[0]==source].shape[0] == 1
-                if distances.min() > self.upper_threshold and len(targets) == 1:
-                    objects_relations.append(
-                        f"{source_key} is far from other objects"
-                    )
-                    visited.update([source])
-                    continue
-
-        return objects_information, objects_relations, visited
+        return objects_information, objects_relations, visited_edges
 
     def get_image_description(self):
         objects_information, objects_relations, _ = self.get_list_attributes()

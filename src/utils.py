@@ -281,8 +281,9 @@ def box_distance_array(array_a: np.ndarray, array_b: np.ndarray):
     y_dist = np.clip(y_sign * y_dist, a_min=0, a_max=None)
 
     x_dist_min, y_dist_min = x_dist.min(axis=-1), y_dist.min(axis=-1)
+    distances = np.sqrt(np.square(x_dist_min) + np.square(y_dist_min)) + 0.01
 
-    return np.sqrt(np.square(x_dist_min) + np.square(y_dist_min)) + 0.01
+    return distances.min()
 
 
 def box_distance_with_type(array_a, array_b, multiplier=1000):
@@ -315,7 +316,7 @@ def get_outlier_threshold(array):
 
 
 def get_distance_matrix(encodings: Union[np.ndarray, List], func):
-    if isinstance(encodings, np.array):
+    if isinstance(encodings, np.ndarray):
         n = encodings.shape[0]
     else:
         n = len(encodings)

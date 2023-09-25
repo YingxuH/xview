@@ -308,16 +308,16 @@ class GeographicalAPI:
                     visited.update([source, target])
                     continue
 
-                distances = box_distance_array(source_encodings, target_encodings)
+                distance = box_distance_array(source_encodings, target_encodings)
 
-                if distances.min() < self.lower_threshold:
+                if distance < self.lower_threshold:
                     objects_relations.append(
                         f"{source_key} is close to {target_key}"
                     )
                     visited.update([source, target])
                     continue
 
-                if distances.min() > self.upper_threshold and len(targets) == 1:
+                if distance > self.upper_threshold and len(targets) == 1:
                     objects_relations.append(
                         f"{source_key} is far from other objects"
                     )
