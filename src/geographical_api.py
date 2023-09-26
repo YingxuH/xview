@@ -187,10 +187,6 @@ class GeographicalAPIManager:
         self.normal_distance_upper_percentile = np.percentile(hetero_distances_array, 90)
 
     def infer(self, types, encodings):
-        # polygons = get_polygons(self.unique_blocks_info[block_id], image_size=256)
-        # polygons["polygons"] = [poly for poly in polygons["polygons"] if poly["object"] != "construction site"]
-        # original_types = [poly['object'] for poly in polygons["polygons"]]
-
         edges, weights = _minimum_spanning_tree(encodings)
         edges_types = np.array(types)[edges]
 
@@ -204,7 +200,6 @@ class GeographicalAPIManager:
         valid_edges = edges[valid_indices]
         clusters = get_clusters_ids(encodings.shape[0], valid_edges)
 
-        # TODO: check this
         cluster_lst = []
         for cid in np.unique(clusters):
             cluster_lst.append(encodings[clusters == cid])
@@ -259,30 +254,7 @@ class GeographicalAPI:
             shape_prefix = f"a line of {shape_prefix}"
         return f"{shape_prefix} {objects_common_parent}"
 
-    def _get_relations(self):
-        cluster_ids, counts = np.unique(self.clusters, return_counts=True)
-
-        queue = [cluster_ids[np.argmax(counts)]]
-        visited_edges = set()
-        relations = []
-
-        while queue:
-            source = queue.pop(0)
-            neighbours = self.connectivity[self.connectivity[:, 0] == source, 1].tolist()
-            valid_neighbours = []
-
-            for neigh in neighbours:
-                current_edge = tuple(sorted([source, neigh]))
-                if current_edge not in visited_edges:
-                    queue.append(neigh)
-                    valid_neighbours.append(neigh)
-                    visited_edges.add(current_edge)
-
-            if valid_neighbours:
-                relations.append([source, valid_neighbours])
-        return relations
-
-    def get_list_attributes(self):
+    def _get_objects_information(self):
         cluster_ids, counts = np.unique(self.clusters, return_counts=True)
         group_key = "group {cluster_id}"
 
@@ -296,11 +268,13 @@ class GeographicalAPI:
                 info = f"{info}, including {', '.join(current_details)}"
             objects_information.append(info)
 
-        # relations = self._get_relations()
+        return objects_information
+
+    def _get_relations(self):
+        group_key = "group {cluster_id}"
 
         objects_relations = []
         visited_edges = set()
-        # print(relations)
         for source, target in self.connectivity:
             edge_key = tuple(sorted([source, target]))
             if edge_key in visited_edges:
@@ -351,7 +325,6 @@ class GeographicalAPI:
                 visited_edges.add(edge_key)
                 continue
 
-            # TODO: replace to self.connectivity[self.connectivity[0]==source].shape[0] == 1
             if distances.min() > self.upper_threshold and source_edge_count == 1:
                 objects_relations.append(
                     f"{source_key} is far from other objects"
@@ -359,10 +332,16 @@ class GeographicalAPI:
                 visited_edges.add(edge_key)
                 continue
 
-        return objects_information, objects_relations, visited_edges
+        return objects_relations
 
     def get_image_description(self):
-        objects_information, objects_relations, _ = self.get_list_attributes()
+        """
+        create the prompt for the LLM.
+        :return: str
+        """
+        objects_information = self._get_objects_information()
+        objects_relations = self._get_relations()
+
         information_str = "\n".join(objects_information) if objects_information else "None"
         relations_str = "\n".join(objects_relations) if objects_relations else "None"
 
@@ -376,54 +355,6 @@ class GeographicalAPI:
             objects_relations=relations_str
         )
         return _system_message_template, current_prompt, current_short_prompt
-
-    def identify_types_of_objects(self, cluster_id: int) -> str:
-        """ provide the objects' type for the specified cluster. """
-        c_types = [t for i, t in enumerate(self.original_types) if self.clusters[i] == cluster_id]
-        objects_common_parents = self.tree.find_common_parent(np.unique(c_types))
-        return identify_types_response_template.format(
-            cluster_id=cluster_id,
-            num_objects=len(c_types),
-            objects_type=objects_common_parents
-        )
-
-    def identify_shape_of_objects(self, cid: int) -> str:
-        """ provide the visual shape of the cluster of objects in the image. """
-        c_types = [t for i, t in enumerate(self.original_types) if self.clusters[i] == cid]
-        objects_common_parents = self.tree.find_common_parent(np.unique(c_types))
-
-        shape_description = "are scattered around"
-        if len(c_types) == 1:
-            shape_description = "stands alone"
-        elif detect_line_shape(self.encodings[self.clusters == cid], ae_threshold=0.7):
-            shape_description = "form a line shape"
-
-        return identify_shape_response_template.format(
-            objects_type=objects_common_parents,
-            cluster_id=cid,
-            shape_description=shape_description
-        )
-
-    def identify_relations_of_clusters(self, cluster_id_a: int, cluster_id_b: int) -> str:
-        """ provide the geographical relations between two clusters of objects in the image. """
-        is_inside, is_outside, is_mixture, _ = detect_orientation(
-            self.encodings[self.clusters == cluster_id_a, :-1],
-            self.encodings[self.clusters == cluster_id_b, :-1]
-        )
-
-        relation_description = ""
-        if is_inside:
-            relation_description = "is surrounded by"
-        elif is_outside:
-            relation_description = "is in close distance to"
-        elif is_mixture:
-            relation_description = "is adjacent to"
-
-        return identify_relations_response_template.format(
-            cluster_id_a=cluster_id_a,
-            cluster_id_b=cluster_id_b,
-            relation_description=relation_description
-        )
 
 
 if __name__ == "__main__":
