@@ -230,6 +230,7 @@ class GeographicalAPIManager:
 class GeographicalAPI:
     def __init__(self, block_info, tree, clusters, connectivity, lower_threshold, upper_threshold):
         self.original_types = block_info["original_types"]
+        self.significant_types = block_info["types"]
         self.encodings = block_info["encodings"]
         self.tree = tree
         self.clusters = clusters
@@ -275,6 +276,62 @@ class GeographicalAPI:
 
         objects_relations = []
         visited_edges = set()
+        for source in np.unique(self.clusters):
+            source_key = group_key.format(cluster_id=source)
+            source_encodings = self.encodings[self.clusters == source]
+            targets = self.connectivity[self.connectivity[:, 0] == source, 1]
+
+            valid_types = []
+            valid_edge_keys = []
+            valid_target_keys = []
+            valid_encoding_lst = []
+
+            for target in targets:
+                edge_key = tuple(sorted([source, target]))
+                if edge_key in visited_edges:
+                    continue
+
+                target_key = group_key.format(cluster_id=target)
+                target_encodings = self.encodings[self.clusters == target]
+                target_type = np.array(self.significant_types)[self.clusters == target][0]
+
+                is_pos_inside, is_pos_outside, is_pos_mixture = detect_orientation(
+                    source_encodings[:, :-1],
+                    target_encodings[:, :-1]
+                )
+
+                is_neg_inside, is_neg_outside, is_neg_mixture = detect_orientation(
+                    target_encodings[:, :-1],
+                    source_encodings[:, :-1]
+                )
+
+                if (not is_pos_inside) and (not is_neg_inside):
+                    valid_types.append(target_type)
+                    valid_edge_keys.append(edge_key)
+                    valid_target_keys.append(target_key)
+                    valid_encoding_lst.append(target_encodings)
+
+            if len(valid_types) != len(targets):
+                continue
+
+            if np.unique(valid_types).shape[0] != 1:
+                continue
+
+            valid_encodings = np.concatenate(valid_encoding_lst, axis=0)
+
+            is_pos_inside, is_pos_outside, is_pos_mixture = detect_orientation(
+                source_encodings[:, :-1],
+                valid_encodings[:, :-1]
+            )
+
+            if is_pos_inside:
+                objects_relations.append(
+                    f"{source_key} is surrounded by {', '.join(valid_target_keys)}"
+                )
+                visited_edges.update(valid_edge_keys)
+
+        print(visited_edges)
+
         for source, target in self.connectivity:
             edge_key = tuple(sorted([source, target]))
             if edge_key in visited_edges:
@@ -310,7 +367,7 @@ class GeographicalAPI:
 
             if is_pos_mixture or is_neg_mixture:
                 objects_relations.append(
-                    f"{source_key} is adjacent to group {target_key}"
+                    f"{source_key} is close to group {target_key}"
                 )
                 visited_edges.add(edge_key)
                 continue
