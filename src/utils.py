@@ -438,7 +438,6 @@ def detect_orientation(encodings_a: np.ndarray, encodings_b: np.ndarray):
 
     vectors = np.tile(np.expand_dims(encodings_a, axis=1), (1, n_b, 1)) \
               - np.tile(np.expand_dims(encodings_b, axis=0), (n_a, 1, 1))
-
     flatten_vectors = np.concatenate([vectors[:, :, :2], vectors[:, :, 2:]], axis=1)
     n_vectors = flatten_vectors.shape[1]
 
@@ -447,7 +446,7 @@ def detect_orientation(encodings_a: np.ndarray, encodings_b: np.ndarray):
     unit_vectors_a, unit_vectors_b = unit_vector(vectors_a), unit_vector(vectors_b)
 
     products = np.sum(unit_vectors_a * unit_vectors_b, axis=-1)
-    angles = np.arccos(np.clip(products, -1.0, 1.0)) / np.pi
+    angles = np.arccos(np.clip(products, -1.0, 1.0)) / np.pi  # a x 2b x 2b
     vectors_opposite = np.any(angles > (135 / 180), axis=-1)
 
     objects_inside = np.any(vectors_opposite, axis=-1)

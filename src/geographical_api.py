@@ -305,6 +305,10 @@ class GeographicalAPI:
                     source_encodings[:, :-1]
                 )
 
+                distances = box_distance_array(source_encodings, target_encodings)
+                if distances.min() >= self.lower_threshold:
+                    continue
+
                 if (not is_pos_inside) and (not is_neg_inside):
                     valid_types.append(target_type)
                     valid_edge_keys.append(edge_key)
@@ -329,8 +333,6 @@ class GeographicalAPI:
                     f"{source_key} is surrounded by {', '.join(valid_target_keys)}"
                 )
                 visited_edges.update(valid_edge_keys)
-
-        print(visited_edges)
 
         for source, target in self.connectivity:
             edge_key = tuple(sorted([source, target]))
