@@ -295,12 +295,12 @@ class GeographicalAPI:
                 target_encodings = self.encodings[self.clusters == target]
                 target_type = np.array(self.significant_types)[self.clusters == target][0]
 
-                is_pos_inside, is_pos_outside, is_pos_mixture = detect_orientation(
+                is_pos_surrounded, is_pos_between, is_pos_outside, is_pos_mixture = detect_orientation(
                     source_encodings[:, :-1],
                     target_encodings[:, :-1]
                 )
 
-                is_neg_inside, is_neg_outside, is_neg_mixture = detect_orientation(
+                is_neg_surrounded, is_neg_between, is_neg_outside, is_neg_mixture = detect_orientation(
                     target_encodings[:, :-1],
                     source_encodings[:, :-1]
                 )
@@ -309,7 +309,7 @@ class GeographicalAPI:
                 if distances.min() >= self.lower_threshold:
                     continue
 
-                if (not is_pos_inside) and (not is_neg_inside):
+                if (is_pos_outside or is_pos_mixture) and (is_neg_outside or is_neg_mixture):
                     valid_types.append(target_type)
                     valid_edge_keys.append(edge_key)
                     valid_target_keys.append(target_key)
@@ -323,16 +323,24 @@ class GeographicalAPI:
 
             valid_encodings = np.concatenate(valid_encoding_lst, axis=0)
 
-            is_pos_inside, is_pos_outside, is_pos_mixture = detect_orientation(
+            is_pos_surrounded, is_pos_between, is_pos_outside, is_pos_mixture = detect_orientation(
                 source_encodings[:, :-1],
                 valid_encodings[:, :-1]
             )
 
-            if is_pos_inside:
+            if is_pos_surrounded:
                 objects_relations.append(
                     f"{source_key} is surrounded by {', '.join(valid_target_keys)}"
                 )
                 visited_edges.update(valid_edge_keys)
+                continue
+
+            if is_pos_between:
+                objects_relations.append(
+                    f"{source_key} is between {', '.join(valid_target_keys)}"
+                )
+                visited_edges.update(valid_edge_keys)
+                continue
 
         for source, target in self.connectivity:
             edge_key = tuple(sorted([source, target]))
@@ -344,25 +352,40 @@ class GeographicalAPI:
             source_key = group_key.format(cluster_id=source)
             target_key = group_key.format(cluster_id=target)
 
-            is_pos_inside, is_pos_outside, is_pos_mixture = detect_orientation(
+            is_pos_surrounded, is_pos_between, is_pos_outside, is_pos_mixture = detect_orientation(
                 source_encodings[:, :-1],
                 target_encodings[:, :-1]
             )
 
-            is_neg_inside, is_neg_outside, is_neg_mixture = detect_orientation(
+            is_neg_surrounded, is_neg_between, is_neg_outside, is_neg_mixture = detect_orientation(
                 target_encodings[:, :-1],
                 source_encodings[:, :-1]
             )
-            if is_pos_inside:
+            print(123)
+            if is_pos_surrounded:
                 objects_relations.append(
                     f"{source_key} is surrounded by {target_key}"
                 )
                 visited_edges.add(edge_key)
                 continue
 
-            if is_neg_inside:
+            if is_neg_surrounded:
                 objects_relations.append(
                     f"{target_key} is surrounded by {source_key}"
+                )
+                visited_edges.add(edge_key)
+                continue
+
+            if is_pos_between:
+                objects_relations.append(
+                    f"{source_key} is between {target_key}"
+                )
+                visited_edges.add(edge_key)
+                continue
+
+            if is_neg_between:
+                objects_relations.append(
+                    f"{target_key} is between {source_key}"
                 )
                 visited_edges.add(edge_key)
                 continue

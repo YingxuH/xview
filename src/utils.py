@@ -445,14 +445,20 @@ def detect_orientation(encodings_a: np.ndarray, encodings_b: np.ndarray):
     vectors_b = np.tile(np.expand_dims(flatten_vectors, axis=1), (1, n_vectors, 1, 1))
     unit_vectors_a, unit_vectors_b = unit_vector(vectors_a), unit_vector(vectors_b)
 
-    products = np.sum(unit_vectors_a * unit_vectors_b, axis=-1)
+    products = np.sum(unit_vectors_a * unit_vectors_b, axis=-1)  # a x 2b x 2b
     angles = np.arccos(np.clip(products, -1.0, 1.0)) / np.pi  # a x 2b x 2b
-    vectors_opposite = np.any(angles > (135 / 180), axis=-1)
+    vectors_opposite = np.any(angles > (135 / 180), axis=-1)  # a x 2b
+    vectors_surround = np.any((angles > (45 / 180)) & (angles <= (135 / 180)), axis=-1)  # a x 2b
+    vectors_surround = vectors_surround & vectors_opposite
 
-    objects_inside = np.any(vectors_opposite, axis=-1)
-    is_inside = np.all(objects_inside)
-    is_outside = np.all(~objects_inside)
-    is_mixture = (not is_inside) and (not is_outside)
+    objects_surround = np.all(vectors_surround, axis=-1)  # a
+    objects_between = np.all(vectors_opposite, axis=-1)
+    is_surround = np.all(objects_surround)
+    is_between = np.all(objects_between)
+
+    is_outside = np.all(~(objects_surround | objects_between))
+
+    is_mixture = (not is_surround) and (not is_outside)
 
     # unit_flatten_vectors = unit_vector(flatten_vectors)
     # orientation_objects = unit_vector(np.sum(unit_flatten_vectors, axis=-2))
@@ -460,7 +466,7 @@ def detect_orientation(encodings_a: np.ndarray, encodings_b: np.ndarray):
     # horizontal_string = ("right" if orientation[0] > 0 else "left") if np.abs(orientation[0]) > 0.6 else ""
     # vertical_string = ("bottom" if orientation[1] > 0 else "top") if np.abs(orientation[1]) > 0.6 else ""
     # orientation_string = f"{vertical_string} {horizontal_string}".strip()
-    return is_inside, is_outside, is_mixture#, orientation_string
+    return is_surround, is_between, is_outside, is_mixture#, orientation_string
 
 
 def describe_relations(clusters, connectivity, encodings, lower_threshold, upper_threshold):
