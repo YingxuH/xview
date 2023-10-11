@@ -451,8 +451,8 @@ def detect_orientation(encodings_a: np.ndarray, encodings_b: np.ndarray):
     vectors_surround = np.any((angles > (45 / 180)) & (angles <= (135 / 180)), axis=-1)  # a x 2b
     vectors_surround = vectors_surround & vectors_opposite
 
-    objects_surround = np.all(vectors_surround, axis=-1)  # a
-    objects_between = np.all(vectors_opposite, axis=-1)
+    objects_surround = np.any(vectors_surround, axis=-1)  # a
+    objects_between = np.any(vectors_opposite, axis=-1)
     is_surround = np.all(objects_surround)
     is_between = np.all(objects_between)
 
