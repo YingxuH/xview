@@ -439,20 +439,37 @@ def detect_orientation(encodings_a: np.ndarray, encodings_b: np.ndarray):
     vectors = np.tile(np.expand_dims(encodings_a, axis=1), (1, n_b, 1)) \
               - np.tile(np.expand_dims(encodings_b, axis=0), (n_a, 1, 1))
     flatten_vectors = np.concatenate([vectors[:, :, :2], vectors[:, :, 2:]], axis=1)
-    n_vectors = flatten_vectors.shape[1]
+    phi_vectors = np.arctan2(flatten_vectors[:, :, 1], flatten_vectors[:, :, 0]) * 180 / np.pi
 
-    vectors_a = np.tile(np.expand_dims(flatten_vectors, axis=2), (1, 1, n_vectors, 1))
-    vectors_b = np.tile(np.expand_dims(flatten_vectors, axis=1), (1, n_vectors, 1, 1))
-    unit_vectors_a, unit_vectors_b = unit_vector(vectors_a), unit_vector(vectors_b)
+    objects_surround = np.full(phi_vectors.shape[0], False)
+    objects_between = np.full(phi_vectors.shape[0], False)
 
-    products = np.sum(unit_vectors_a * unit_vectors_b, axis=-1)  # a x 2b x 2b
-    angles = np.arccos(np.clip(products, -1.0, 1.0)) / np.pi  # a x 2b x 2b
-    vectors_opposite = np.any(angles > (135 / 180), axis=-1)  # a x 2b
-    vectors_surround = np.any((angles > (45 / 180)) & (angles <= (135 / 180)), axis=-1)  # a x 2b
-    vectors_surround = vectors_surround & vectors_opposite
+    for i in range(phi_vectors.shape[0]):
+        current_vector = np.sort(phi_vectors[i] + 180)
+        diffs = np.diff(current_vector, append=current_vector[0] + 360)
+        origin_last_diff = diffs[-1]
+        if diffs[-1] > 180:
+            diffs[-1] = 360 - diffs[-1]
+        is_between = np.all((diffs <= 45) | (diffs >= 135)) and np.any(diffs >= 135)
+        is_surround = np.all(diffs < 135) and origin_last_diff < 90
 
-    objects_surround = np.any(vectors_surround, axis=-1)  # a
-    objects_between = np.any(vectors_opposite, axis=-1)
+        objects_between[i] = is_between
+        objects_surround[i] = is_surround
+
+    # n_vectors = flatten_vectors.shape[1]
+    #
+    # vectors_a = np.tile(np.expand_dims(flatten_vectors, axis=2), (1, 1, n_vectors, 1))
+    # vectors_b = np.tile(np.expand_dims(flatten_vectors, axis=1), (1, n_vectors, 1, 1))
+    # unit_vectors_a, unit_vectors_b = unit_vector(vectors_a), unit_vector(vectors_b)
+    #
+    # products = np.sum(unit_vectors_a * unit_vectors_b, axis=-1)  # a x 2b x 2b
+    # angles = np.arccos(np.clip(products, -1.0, 1.0)) / np.pi  # a x 2b x 2b
+    # vectors_opposite = np.any(angles > (135 / 180), axis=-1)  # a x 2b
+    # vectors_surround = np.any((angles > (45 / 180)) & (angles <= (135 / 180)), axis=-1)  # a x 2b
+    # vectors_surround = vectors_surround & vectors_opposite
+    #
+    # objects_surround = np.any(vectors_surround, axis=-1)  # a
+    # objects_between = np.any(vectors_opposite, axis=-1)
     is_surround = np.all(objects_surround)
     is_between = np.all(objects_between)
 

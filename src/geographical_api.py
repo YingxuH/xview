@@ -361,7 +361,6 @@ class GeographicalAPI:
                 target_encodings[:, :-1],
                 source_encodings[:, :-1]
             )
-            print(123)
             if is_pos_surrounded:
                 objects_relations.append(
                     f"{source_key} is surrounded by {target_key}"
