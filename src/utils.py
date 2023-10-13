@@ -447,14 +447,18 @@ def detect_orientation(encodings_a: np.ndarray, encodings_b: np.ndarray):
     for i in range(phi_vectors.shape[0]):
         current_vector = np.sort(phi_vectors[i] + 180)
         diffs = np.diff(current_vector, append=current_vector[0] + 360)
-        origin_last_diff = diffs[-1]
-        if diffs[-1] > 180:
-            diffs[-1] = 360 - diffs[-1]
-        is_between = np.all((diffs <= 45) | (diffs >= 135)) and np.any(diffs >= 135)
-        is_surround = np.all(diffs < 135) and origin_last_diff < 90
+        # origin_last_diff = diffs[-1]
+        # if diffs[-1] > 180:
+        #     diffs[-1] = 360 - diffs[-1]
+        # print(diffs)
+        is_between = np.sum((diffs >= 135) & (diffs <= 225)) >= 2
+        is_surround = np.all(diffs < 190)
 
         objects_between[i] = is_between
         objects_surround[i] = is_surround
+
+    print(objects_between)
+    print(objects_surround)
 
     # n_vectors = flatten_vectors.shape[1]
     #

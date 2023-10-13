@@ -184,7 +184,7 @@ class GeographicalAPIManager:
 
         self.hetero_distances = hetero_distances_array
         self.normal_distance_lower_percentile = np.percentile(hetero_distances_array, 75)
-        self.normal_distance_upper_percentile = np.percentile(hetero_distances_array, 90)
+        self.normal_distance_upper_percentile = np.percentile(hetero_distances_array, 93)
 
     def infer(self, types, encodings):
         edges, weights = _minimum_spanning_tree(encodings)
@@ -306,7 +306,7 @@ class GeographicalAPI:
                 )
 
                 distances = box_distance_array(source_encodings, target_encodings)
-                if distances.min() >= self.lower_threshold:
+                if distances.min() >= self.upper_threshold:
                     continue
 
                 if (is_pos_outside or is_pos_mixture) and (is_neg_outside or is_neg_mixture):
