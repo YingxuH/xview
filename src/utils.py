@@ -414,10 +414,39 @@ def detect_line_shape(encodings, ae_threshold=1, angles_threshold=0.25):
     all_aes = np.stack([center_lr_ae, tl_lr_ae, br_lr_ae])
     all_degrees = np.arctan([center_lr_tan, tl_lr_tan, br_lr_tan]) / np.pi
 
+    print(all_aes)
+
     valid_aes = all(all_aes.max(axis=1) < ae_threshold)
     valid_angles = np.ptp(all_degrees) < angles_threshold
 
     return valid_aes and valid_angles
+
+
+def element_wise_orientation(phi_vectors):
+    n_b = phi_vectors.shape[2]
+
+    if n_b == 1:
+        return np.full(phi_vectors.shape[0], False), np.full(phi_vectors.shape[0], False)
+
+    objects_between = np.full(phi_vectors.shape[:2], False)
+    objects_surround = np.full(phi_vectors.shape[:2], False)
+
+    for i in range(phi_vectors.shape[0]):
+        for j in range(phi_vectors.shape[1]):
+            current_vector = np.sort(phi_vectors[i][j] + 180)
+
+            diffs = np.diff(current_vector, append=current_vector[0] + 360)
+            sorted_diffs = -np.sort(-diffs)
+            if n_b == 2:
+                is_between = diffs.min() > 60 and np.all(diffs < 250)
+            else:
+                is_between = sorted_diffs[1] > 60 and sorted_diffs[1] > 3 * sorted_diffs[2] and np.all(diffs < 250)
+            is_surround = np.all(diffs < 150)
+
+            objects_between[i][j] = is_between
+            objects_surround[i][j] = is_surround
+
+    return np.any(objects_between, axis=1), np.any(objects_surround, axis=1)
 
 
 def unit_vector(vector):
@@ -436,44 +465,28 @@ def detect_orientation(encodings_a: np.ndarray, encodings_b: np.ndarray):
     n_a = encodings_a.shape[0]
     n_b = encodings_b.shape[0]
 
-    vectors = np.tile(np.expand_dims(encodings_a, axis=1), (1, n_b, 1)) \
-              - np.tile(np.expand_dims(encodings_b, axis=0), (n_a, 1, 1))
-    flatten_vectors = np.concatenate([vectors[:, :, :2], vectors[:, :, 2:]], axis=1)
-    phi_vectors = np.arctan2(flatten_vectors[:, :, 1], flatten_vectors[:, :, 0]) * 180 / np.pi
+    vectors_a = np.tile(np.expand_dims(encodings_a, axis=1), (1, n_b, 1))
+    vectors_b = np.tile(np.expand_dims(encodings_b, axis=0), (n_a, 1, 1))
+    vectors = vectors_a - vectors_b
 
-    objects_surround = np.full(phi_vectors.shape[0], False)
-    objects_between = np.full(phi_vectors.shape[0], False)
+    vectors_tl, vectors_br = unit_vector(vectors[:, :, :2]), unit_vector(vectors[:, :, 2:])
+    phi_vectors_tl = np.arctan2(vectors_tl[:, :, 1], vectors_tl[:, :, 0]) * 180 / np.pi
+    phi_vectors_br = np.arctan2(vectors_br[:, :, 1], vectors_br[:, :, 0]) * 180 / np.pi
 
-    for i in range(phi_vectors.shape[0]):
-        current_vector = np.sort(phi_vectors[i] + 180)
-        diffs = np.diff(current_vector, append=current_vector[0] + 360)
-        # origin_last_diff = diffs[-1]
-        # if diffs[-1] > 180:
-        #     diffs[-1] = 360 - diffs[-1]
-        # print(diffs)
-        is_between = np.sum((diffs >= 135) & (diffs <= 225)) >= 2
-        is_surround = np.all(diffs < 190)
+    vectors_tl_condition = (phi_vectors_tl >= 30) & (phi_vectors_tl <= 60)
+    vectors_br_condition = (phi_vectors_br >= -150) & (phi_vectors_br <= -120)
+    objects_surround_by_angles = np.any(vectors_tl_condition & vectors_br_condition, axis=1)
 
-        objects_between[i] = is_between
-        objects_surround[i] = is_surround
+    centers_a = (vectors_a[:, :, :2] + vectors_a[:, :, 2:]) / 2
+    centers_b = (vectors_b[:, :, :2] + vectors_b[:, :, 2:]) / 2
+    centers_vectors = centers_a - centers_b
+    vectors_all = np.stack([vectors_tl, vectors_br, centers_vectors], axis=1)
 
-    print(objects_between)
-    print(objects_surround)
+    phi_vectors = np.arctan2(vectors_all[:, :, :, 1], vectors_all[:, :, :, 0]) * 180 / np.pi
 
-    # n_vectors = flatten_vectors.shape[1]
-    #
-    # vectors_a = np.tile(np.expand_dims(flatten_vectors, axis=2), (1, 1, n_vectors, 1))
-    # vectors_b = np.tile(np.expand_dims(flatten_vectors, axis=1), (1, n_vectors, 1, 1))
-    # unit_vectors_a, unit_vectors_b = unit_vector(vectors_a), unit_vector(vectors_b)
-    #
-    # products = np.sum(unit_vectors_a * unit_vectors_b, axis=-1)  # a x 2b x 2b
-    # angles = np.arccos(np.clip(products, -1.0, 1.0)) / np.pi  # a x 2b x 2b
-    # vectors_opposite = np.any(angles > (135 / 180), axis=-1)  # a x 2b
-    # vectors_surround = np.any((angles > (45 / 180)) & (angles <= (135 / 180)), axis=-1)  # a x 2b
-    # vectors_surround = vectors_surround & vectors_opposite
-    #
-    # objects_surround = np.any(vectors_surround, axis=-1)  # a
-    # objects_between = np.any(vectors_opposite, axis=-1)
+    objects_between, objects_surround_by_degrees = element_wise_orientation(phi_vectors)
+    objects_surround = objects_surround_by_angles | objects_surround_by_degrees
+
     is_surround = np.all(objects_surround)
     is_between = np.all(objects_between)
 
@@ -481,13 +494,7 @@ def detect_orientation(encodings_a: np.ndarray, encodings_b: np.ndarray):
 
     is_mixture = (not is_surround) and (not is_outside)
 
-    # unit_flatten_vectors = unit_vector(flatten_vectors)
-    # orientation_objects = unit_vector(np.sum(unit_flatten_vectors, axis=-2))
-    # orientation = unit_vector(np.sum(orientation_objects, axis=-2))
-    # horizontal_string = ("right" if orientation[0] > 0 else "left") if np.abs(orientation[0]) > 0.6 else ""
-    # vertical_string = ("bottom" if orientation[1] > 0 else "top") if np.abs(orientation[1]) > 0.6 else ""
-    # orientation_string = f"{vertical_string} {horizontal_string}".strip()
-    return is_surround, is_between, is_outside, is_mixture#, orientation_string
+    return is_surround, is_between, is_outside, is_mixture
 
 
 def describe_relations(clusters, connectivity, encodings, lower_threshold, upper_threshold):
