@@ -20,7 +20,7 @@ from src.utils import (
     get_distance_matrix,
     get_clusters_ids,
     detect_line_shape,
-    detect_orientation,
+    detect_surrounding,
     describe_relations,
     random_test_sub_blocks
 )
@@ -186,21 +186,21 @@ class GeographicalAPIManager:
 
         self.hetero_multiplier = 1000
         self.cluster_distance_threshold_percentile = None
-        self.hetero_distances = None
+        self.all_distances = None
         self.normal_distance_lower_percentile = None
-        self.normal_distance_upper_percentile = None
         self.train()
 
     def train(self):
         homo_distances_freq = defaultdict(lambda: [])
         hetero_distances = []
+        homo_distances = []
 
         for block_id in tqdm(self.decoded_blocks_info, desc="Training"):
             types = self.decoded_blocks_info[block_id]["types"]
             encodings = self.decoded_blocks_info[block_id]["encodings"]
 
             box_distance_custom = partial(box_distance_with_type, multiplier=self.hetero_multiplier)
-            edges, weights= _minimum_spanning_tree(encodings, distance_func=box_distance_custom)
+            edges, weights = _minimum_spanning_tree(encodings, distance_func=box_distance_custom)
             edges_types = np.array(types)[edges]
 
             homo_edge_conditions = (weights > 0) & (edges_types[:, 0] == edges_types[:, 1])
@@ -216,17 +216,20 @@ class GeographicalAPIManager:
             for i, (start_type, _) in enumerate(homo_edge_types):
                 homo_distances_freq[start_type].append(homo_edge_weights[i])
 
+            homo_distances.append(homo_edge_weights)
             hetero_distances.append(hetero_edge_weights)
 
+        homo_distances_array = np.concatenate(homo_distances)
         hetero_distances_array = np.sqrt(
             np.square(np.concatenate(hetero_distances)) - np.square(self.hetero_multiplier))
         self.cluster_distance_threshold_percentile = {
             key: np.percentile(item, 75) for key, item in homo_distances_freq.items()
         }
 
-        self.hetero_distances = hetero_distances_array
-        self.normal_distance_lower_percentile = np.percentile(hetero_distances_array, 75)
-        self.normal_distance_upper_percentile = np.percentile(hetero_distances_array, 93)
+        all_distances_array = np.concatenate([homo_distances_array, hetero_distances_array])
+
+        self.all_distances = all_distances_array
+        self.normal_distance_lower_percentile = np.percentile(all_distances_array, 75)
 
     def infer(self, types, encodings):
         edges, weights = _minimum_spanning_tree(encodings)
@@ -264,21 +267,19 @@ class GeographicalAPIManager:
             tree,
             clusters,
             connectivity,
-            self.normal_distance_lower_percentile,
-            self.normal_distance_upper_percentile
+            self.normal_distance_lower_percentile
         )
 
 
 class GeographicalAPI:
-    def __init__(self, block_info, tree, clusters, connectivity, lower_threshold, upper_threshold):
+    def __init__(self, block_info, tree, clusters, connectivity, threshold):
         self.original_types = block_info["original_types"]
         self.significant_types = block_info["types"]
         self.encodings = block_info["encodings"]
         self.tree = tree
         self.clusters = clusters
         self.connectivity = connectivity
-        self.lower_threshold = lower_threshold
-        self.upper_threshold = upper_threshold
+        self.close_distance_threshold = threshold
 
     def _get_common_object(self, cluster_id):
         types = np.array(self.original_types)[self.clusters == cluster_id]
@@ -293,7 +294,7 @@ class GeographicalAPI:
         objects_common_parent = self._get_common_object(cluster_id)
 
         shape_prefix = encodings.shape[0]
-        if detect_line_shape(encodings, ae_threshold=0.4):
+        if detect_line_shape(encodings):
             shape_prefix = f"a line of {shape_prefix}"
         return f"{shape_prefix} {objects_common_parent}"
 
@@ -337,18 +338,18 @@ class GeographicalAPI:
                 target_encodings = self.encodings[self.clusters == target]
                 target_type = np.array(self.significant_types)[self.clusters == target][0]
 
-                is_pos_surrounded, is_pos_between, is_pos_outside, is_pos_mixture = detect_orientation(
+                is_pos_surrounded, is_pos_between, is_pos_outside, is_pos_mixture = detect_surrounding(
                     source_encodings[:, :-1],
                     target_encodings[:, :-1]
                 )
 
-                is_neg_surrounded, is_neg_between, is_neg_outside, is_neg_mixture = detect_orientation(
+                is_neg_surrounded, is_neg_between, is_neg_outside, is_neg_mixture = detect_surrounding(
                     target_encodings[:, :-1],
                     source_encodings[:, :-1]
                 )
 
                 distances = box_distance_array(source_encodings, target_encodings)
-                if distances.min() >= self.upper_threshold:
+                if distances.min() >= self.close_distance_threshold:
                     continue
 
                 if (is_pos_outside or is_pos_mixture) and (is_neg_outside or is_neg_mixture):
@@ -365,7 +366,7 @@ class GeographicalAPI:
 
             valid_encodings = np.concatenate(valid_encoding_lst, axis=0)
 
-            is_pos_surrounded, is_pos_between, is_pos_outside, is_pos_mixture = detect_orientation(
+            is_pos_surrounded, is_pos_between, is_pos_outside, is_pos_mixture = detect_surrounding(
                 source_encodings[:, :-1],
                 valid_encodings[:, :-1]
             )
@@ -394,12 +395,12 @@ class GeographicalAPI:
             source_key = group_key.format(cluster_id=source)
             target_key = group_key.format(cluster_id=target)
 
-            is_pos_surrounded, is_pos_between, is_pos_outside, is_pos_mixture = detect_orientation(
+            is_pos_surrounded, is_pos_between, is_pos_outside, is_pos_mixture = detect_surrounding(
                 source_encodings[:, :-1],
                 target_encodings[:, :-1]
             )
 
-            is_neg_surrounded, is_neg_between, is_neg_outside, is_neg_mixture = detect_orientation(
+            is_neg_surrounded, is_neg_between, is_neg_outside, is_neg_mixture = detect_surrounding(
                 target_encodings[:, :-1],
                 source_encodings[:, :-1]
             )
@@ -439,18 +440,10 @@ class GeographicalAPI:
                 continue
 
             distances = box_distance_array(source_encodings, target_encodings)
-            source_edge_count = self.connectivity[self.connectivity[:, 0] == source].shape[0]
 
-            if distances.min() < self.lower_threshold:
+            if distances.min() < self.close_distance_threshold:
                 objects_relations.append(
                     f"{source_key} is close to {target_key}"
-                )
-                visited_edges.add(edge_key)
-                continue
-
-            if distances.min() > self.upper_threshold and source_edge_count == 1:
-                objects_relations.append(
-                    f"{source_key} is far from other objects"
                 )
                 visited_edges.add(edge_key)
                 continue

@@ -135,8 +135,8 @@ def random_test_sub_blocks(polygons, key, labels, texts, image_path, save_path):
     unique_rects = [rectangles[i] for i in unique_indices]
     plt.legend(unique_rects, unique_labels)
     file_name = f"{key}.png"
-    plt.savefig(os.path.join(save_path, file_name))
-    # plt.show()
+    # plt.savefig(os.path.join(save_path, file_name))
+    plt.show()
     plt.close()
 
     return key
@@ -372,16 +372,22 @@ def root_mean_squared_error(prediction, reference):
     return np.sqrt(np.square(preds_array - refers_array).sum()) / preds_array.shape[0]
 
 
-def detect_line_shape(encodings, ae_threshold=1, angles_threshold=0.25):
+def detect_line_shape(encodings, ae_threshold=2, angles_threshold=0.25):
     """
     detect whether a cluster of objects form a line shape.
     :param encodings:
     :param ae_threshold:
+    :param mean_ae_threshold:
     :param angles_threshold:
     :return:
     """
     if encodings.shape[0] < 3:
         return False
+
+    if encodings.shape[0] <= 4:
+        mean_ae_threshold = 0.2
+    else:
+        mean_ae_threshold = 0.4
 
     center_x = encodings[:, [0, 2]].mean(axis=1)
     center_y = encodings[:, [1, 3]].mean(axis=1)
@@ -414,12 +420,15 @@ def detect_line_shape(encodings, ae_threshold=1, angles_threshold=0.25):
     all_aes = np.stack([center_lr_ae, tl_lr_ae, br_lr_ae])
     all_degrees = np.arctan([center_lr_tan, tl_lr_tan, br_lr_tan]) / np.pi
 
-    print(all_aes)
-
     valid_aes = all(all_aes.max(axis=1) < ae_threshold)
+    valid_mean_ae = all(all_aes.mean(axis=1) < mean_ae_threshold)
     valid_angles = np.ptp(all_degrees) < angles_threshold
 
-    return valid_aes and valid_angles
+    # print(all_aes.max(axis=1), ae_threshold, valid_aes)
+    # print(all_aes.mean(axis=1), mean_ae_threshold, valid_mean_ae)
+    # print(np.ptp(all_degrees), angles_threshold, valid_angles)
+
+    return valid_aes and valid_mean_ae and valid_angles
 
 
 def element_wise_orientation(phi_vectors):
@@ -438,10 +447,10 @@ def element_wise_orientation(phi_vectors):
             diffs = np.diff(current_vector, append=current_vector[0] + 360)
             sorted_diffs = -np.sort(-diffs)
             if n_b == 2:
-                is_between = diffs.min() > 60 and np.all(diffs < 250)
+                is_between = diffs.min() > 150 and np.all(diffs < 210)
             else:
-                is_between = sorted_diffs[1] > 60 and sorted_diffs[1] > 3 * sorted_diffs[2] and np.all(diffs < 250)
-            is_surround = np.all(diffs < 150)
+                is_between = sorted_diffs[1] > 140 and sorted_diffs[1] > 3 * sorted_diffs[2] and np.all(diffs < 220)
+            is_surround = np.all(diffs < 90)
 
             objects_between[i][j] = is_between
             objects_surround[i][j] = is_surround
@@ -454,7 +463,7 @@ def unit_vector(vector):
     return vector / np.linalg.norm(vector, axis=-1, keepdims=True)
 
 
-def detect_orientation(encodings_a: np.ndarray, encodings_b: np.ndarray):
+def detect_surrounding(encodings_a: np.ndarray, encodings_b: np.ndarray):
     """
     whether object a is surrounded by object b.
     :param encodings_a:
@@ -523,12 +532,12 @@ def describe_relations(clusters, connectivity, encodings, lower_threshold, upper
     ans = "\n"
     for source, targets in relations:
         for target in targets:
-            is_pos_inside, is_pos_outside, is_pos_mixture = detect_orientation(
+            is_pos_inside, is_pos_outside, is_pos_mixture = detect_surrounding(
                 encodings[clusters == source, :-1],
                 encodings[clusters == target, :-1]
             )
 
-            is_neg_inside, is_neg_outside, is_neg_mixture = detect_orientation(
+            is_neg_inside, is_neg_outside, is_neg_mixture = detect_surrounding(
                 encodings[clusters == target, :-1],
                 encodings[clusters == source, :-1]
             )
