@@ -78,7 +78,7 @@ group 3: 7 building
 group 2 is between group 3, group 0
 
 ## captions
-['There is a damaged building stand between some buildings.', 'Some buildings are in close proximity while others are scattered around.']
+["There is a damaged building stand between some buildings.", "Some buildings are in close proximity while others are scattered around."]
 
 # example image description 4:
 ## objects/object groups information
@@ -89,7 +89,7 @@ group 1: 9 building
 group 0 is surrounded by group 1
 
 ## captions
-['There is a small car surrounded by a group of buildings.', 'A group of buildings stand close to each other.']
+["There is a small car surrounded by a group of buildings.", "A group of buildings stand close to each other."]
 
 # example image description 5:
 ## objects/object groups information
@@ -104,7 +104,7 @@ group 1 is close to group 3
 group 2 is surrounded by group 3
 
 ## captions
-['Some small cars are located near some buildings.', 'A small car is surrounded by several buildings']
+["Some small cars are located near some buildings.", "A small car is surrounded by several buildings"]
 
 # example image description 6:
 ## objects/object groups information
@@ -118,7 +118,7 @@ group 0 is far from other objects
 group 1 is far from other objects
 
 ## captions
-['Some vehicles are scattered around.']
+["Some vehicles are scattered around."]
 
 # real image description:
 ## objects/object groups information
