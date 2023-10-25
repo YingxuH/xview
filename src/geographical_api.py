@@ -43,15 +43,13 @@ Here are some examples:
 
 # example image description 1:
 ## objects/object groups information
-group 0: 1 damaged building
-group 1: a line of 5 building
-group 2: a line of 3 building
+group 0: a line of 6 maritime vessel, including 5 maritime vessel, 1 oil tanker
 
 ## significant geographical relations
-group 2 is next to group 0
+None
 
 ## captions
-["There are two lines of buildings in the image.", "A damaged building is next to a line of buildings in the image"]
+["Some oil tankers and located close to some vessels.", "Some vessels are tightly arranged on the water."]
 
 # example image description 2:
 ## objects/object groups information
@@ -62,7 +60,7 @@ group 3: 2 building, including 1 building, 1 shed
 group 4: 2 building, including 1 building, 1 damaged building
 
 ## significant geographical relations
-group 3 is next to group 1
+group 3 is close to group 1
 
 ## captions
 ["A building and one shed sit side by side", "There is a building and a damaged building standing together.", "Some buildings are very close to each other while some others are not"]
@@ -70,15 +68,15 @@ group 3 is next to group 1
 # example image description 3:
 ## objects/object groups information
 group 0: 1 building
-group 1: 1 building
-group 2: 1 damaged building
-group 3: 7 building
+group 1: 2 vehicle, including 1 excavator, 1 small car
+group 2: 2 shipping container
 
 ## significant geographical relations
-group 2 is between group 3, group 0
+group 0 is between group 1
+group 1 is close to group 2
 
 ## captions
-['There is a damaged building stand between some buildings.', 'Some buildings are in close proximity while others are scattered around.']
+["Some shipping containers are close to a vehicle.", "A building is located between two vehicles."]
 
 # example image description 4:
 ## objects/object groups information
@@ -89,7 +87,7 @@ group 1: 9 building
 group 0 is surrounded by group 1
 
 ## captions
-['There is a small car surrounded by a group of buildings.', 'A group of buildings stand close to each other.']
+["A small car is surrounded by a group of buildings.", "A group of buildings stand close to each other."]
 
 # example image description 5:
 ## objects/object groups information
@@ -104,7 +102,7 @@ group 1 is close to group 3
 group 2 is surrounded by group 3
 
 ## captions
-['Some small cars are located near some buildings.', 'A small car is surrounded by several buildings']
+["Some small cars are located near some buildings.", "A small car is surrounded by several buildings"]
 
 # example image description 6:
 ## objects/object groups information
@@ -114,11 +112,10 @@ group 2: 2 engineering vehicle, including 1 dump truck, 1 excavator
 group 3: 2 scraper or tractor, including 1 excavator, 1 front loader or bulldozer
 
 ## significant geographical relations
-group 0 is far from other objects
-group 1 is far from other objects
+None
 
 ## captions
-['Some vehicles are scattered around.']
+["Some engineering vehicles are scattered around."]
 
 # real image description:
 ## objects/object groups information
@@ -171,9 +168,11 @@ class GeographicalAPIManager:
 
         self.tree = HierarchyTree(_hierarchy_path)
         self.decoded_blocks_info = dict()
+
+        self.ignored_objects = ["construction site", "facility", "vehicle lot"]
         for block_id in tqdm(self.blocks_info, desc="Decoding json"):
             polygons = get_polygons(self.blocks_info[block_id], image_size=256)
-            polygons["polygons"] = [poly for poly in polygons["polygons"] if poly["object"] != "construction site"]
+            polygons["polygons"] = [poly for poly in polygons["polygons"] if poly["object"] not in self.ignored_objects]
             if not polygons["polygons"]:
                 continue
 

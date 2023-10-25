@@ -405,13 +405,13 @@ def detect_line_shape(encodings, ae_threshold=2, angles_threshold=0.25):
     tl_lr.fit(np.expand_dims(tl_x, 1), tl_y)
     br_lr.fit(np.expand_dims(br_x, 1), br_y)
 
-    center_y_hat = center_lr.predict(np.expand_dims(center_x, 1))
-    tl_y_hat = tl_lr.predict(np.expand_dims(tl_x, 1))
-    br_y_hat = br_lr.predict(np.expand_dims(br_x, 1))
+    center_a, center_b, center_c = center_lr.coef_[0], -1, center_lr.intercept_
+    tl_a, tl_b, tl_c = tl_lr.coef_[0], -1, tl_lr.intercept_
+    br_a, br_b, br_c = br_lr.coef_[0], -1, br_lr.intercept_
 
-    center_lr_ae = np.abs(center_y_hat - center_y) / diameters
-    tl_lr_ae = np.abs(tl_y_hat - tl_y) / diameters
-    br_lr_ae = np.abs(br_y_hat - br_y) / diameters
+    center_lr_ae = np.abs(center_a * center_x + center_b * center_y + center_c) / np.sqrt(center_x ** 2 + center_y ** 2)
+    tl_lr_ae = np.abs(tl_a * tl_x + tl_b * tl_y + tl_c) / np.sqrt(tl_x ** 2 + tl_y ** 2)
+    br_lr_ae = np.abs(br_a * br_x + br_b * br_y + br_c) / np.sqrt(br_x ** 2 + br_y ** 2)
 
     center_lr_tan = center_lr.coef_[0]
     tl_lr_tan = tl_lr.coef_[0]
@@ -424,9 +424,9 @@ def detect_line_shape(encodings, ae_threshold=2, angles_threshold=0.25):
     valid_mean_ae = all(all_aes.mean(axis=1) < mean_ae_threshold)
     valid_angles = np.ptp(all_degrees) < angles_threshold
 
-    # print(all_aes.max(axis=1), ae_threshold, valid_aes)
-    # print(all_aes.mean(axis=1), mean_ae_threshold, valid_mean_ae)
-    # print(np.ptp(all_degrees), angles_threshold, valid_angles)
+    print(all_aes.max(axis=1), ae_threshold, valid_aes)
+    print(all_aes.mean(axis=1), mean_ae_threshold, valid_mean_ae)
+    print([center_lr_tan, tl_lr_tan, br_lr_tan], angles_threshold, valid_angles)
 
     return valid_aes and valid_mean_ae and valid_angles
 
@@ -442,20 +442,22 @@ def element_wise_orientation(phi_vectors):
 
     for i in range(phi_vectors.shape[0]):
         for j in range(phi_vectors.shape[1]):
-            current_vector = np.sort(phi_vectors[i][j] + 180)
+            current_vector = np.sort(phi_vectors[i, j] + 180)
 
             diffs = np.diff(current_vector, append=current_vector[0] + 360)
             sorted_diffs = -np.sort(-diffs)
+
+            # print(i, j, sorted_diffs)
             if n_b == 2:
-                is_between = diffs.min() > 150 and np.all(diffs < 210)
+                is_between = diffs.min() > 120 and np.all(diffs < 220)
             else:
-                is_between = sorted_diffs[1] > 140 and sorted_diffs[1] > 3 * sorted_diffs[2] and np.all(diffs < 220)
+                is_between = sorted_diffs[1] > 120 and sorted_diffs[1] > 3 * sorted_diffs[2] and np.all(diffs < 220)
             is_surround = np.all(diffs < 90)
 
-            objects_between[i][j] = is_between
-            objects_surround[i][j] = is_surround
+            objects_between[i, j] = is_between
+            objects_surround[i, j] = is_surround
 
-    return np.any(objects_between, axis=1), np.any(objects_surround, axis=1)
+    return objects_between[:, -1], np.any(objects_surround, axis=1)
 
 
 def unit_vector(vector):

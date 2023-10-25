@@ -6,7 +6,6 @@ import asyncio
 from pathlib import Path
 import concurrent.futures as futures
 from aiohttp import ClientSession
-from litellm import acompletion
 
 import openai
 from openai.error import APIError, Timeout, APIConnectionError, ServiceUnavailableError
@@ -22,23 +21,6 @@ from src.utils import *
 def get_raw_result(model_name, system_message, prompt):
 
     completion = openai.ChatCompletion.create(
-        model=model_name,
-        messages=[
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": prompt}
-        ]
-    )
-
-    return completion.choices[0].message.content
-
-
-@retry_upon_exceptions(
-    APIError, Timeout, APIConnectionError, ServiceUnavailableError,
-    retry=3, wait_time=30
-)
-async def async_get_raw_result(model_name, system_message, prompt):
-
-    completion = await acompletion(
         model=model_name,
         messages=[
             {"role": "system", "content": system_message},
@@ -70,50 +52,6 @@ def fetch_result(model_name, system_message, prompt):
             raise LLMValidationException(f"invalid caption, got {caption}")
 
     return response_json
-
-
-@retry_upon_exceptions(
-    json.JSONDecodeError, LLMValidationException,
-    retry=5, wait_time=1
-)
-async def async_fetch_result(model_name, system_message, prompt, global_base: List):
-    invalid_regex = r"group[-_:\s]*\d+"
-
-    response = await async_get_raw_result(model_name, system_message, prompt)
-    response_json = json.loads(response)
-
-    if type(response_json) is not list:
-        raise LLMValidationException(f"expected python list, got {type(response_json)}")
-
-    if not response_json:
-        raise LLMValidationException(f"invalid python list, got {response_json}")
-
-    for caption in response_json:
-        if re.search(invalid_regex, caption.lower()):
-            raise LLMValidationException(f"invalid caption, got {caption}")
-
-    global_base.append(response_json)
-    return response_json
-
-
-def execute_tasks(tasks_params: List):
-    results = defaultdict(lambda: [])
-
-    loop = asyncio.get_event_loop()
-    tasks = [
-        loop.create_task(async_fetch_result(
-            param["model"],
-            param["system_message"],
-            param["prompt"],
-            results[param["block_id"]]
-        ))
-        for param in tasks_params
-    ]
-
-    loop.run_until_complete(asyncio.wait(tasks))
-    loop.close()
-
-    return results
 
 
 if __name__ == "__main__":

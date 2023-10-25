@@ -3,7 +3,6 @@
       "Building": {
         "AircraftHangar": {},
         "DamagedBuilding": {},
-        "StorageTank": {},
         "Tower:": {
           "Pylon": {}
         },
@@ -13,6 +12,7 @@
         }
       },
       "Facility": {
+        "StorageTank": {},
         "TowerCrane": {},
         "ShippingContainer": {},
         "ContainerCrane": {}
