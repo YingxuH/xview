@@ -21,7 +21,7 @@ from src.utils import (
     get_distance_matrix,
     get_clusters_ids,
     detect_line_shape,
-    detect_orientation,
+    detect_surrounding,
     describe_relations,
     random_test_sub_blocks
 )
@@ -278,12 +278,12 @@ class GeographicalAPI:
                 source_key = group_key.format(cluster_id=source)
                 target_key = group_key.format(cluster_id=target)
 
-                is_pos_inside, is_pos_outside, is_pos_mixture = detect_orientation(
+                is_pos_inside, is_pos_outside, is_pos_mixture = detect_surrounding(
                     source_encodings[:, :-1],
                     target_encodings[:, :-1]
                 )
 
-                is_neg_inside, is_neg_outside, is_neg_mixture = detect_orientation(
+                is_neg_inside, is_neg_outside, is_neg_mixture = detect_surrounding(
                     target_encodings[:, :-1],
                     source_encodings[:, :-1]
                 )
@@ -364,7 +364,7 @@ class GeographicalAPI:
 
     def identify_relations_of_clusters(self, cluster_id_a: int, cluster_id_b: int) -> str:
         """ provide the geographical relations between two clusters of objects in the image. """
-        is_inside, is_outside, is_mixture, _ = detect_orientation(
+        is_inside, is_outside, is_mixture, _ = detect_surrounding(
             self.encodings[self.clusters == cluster_id_a, :-1],
             self.encodings[self.clusters == cluster_id_b, :-1]
         )
